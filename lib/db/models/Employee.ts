@@ -120,8 +120,6 @@ const EmployeeSchema = new Schema<IEmployee>(
 EmployeeSchema.index({ status: 1 })
 EmployeeSchema.index({ assignedClientId: 1 })
 EmployeeSchema.index({ assignedProjectId: 1 })
-EmployeeSchema.index({ employeeCode: 1 }, { unique: true })
-EmployeeSchema.index({ email: 1 }, { unique: true })
 
 const Employee: Model<IEmployee> =
   mongoose.models.Employee ??

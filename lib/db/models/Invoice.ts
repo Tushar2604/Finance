@@ -130,7 +130,6 @@ const InvoiceSchema = new Schema<IInvoice>(
 InvoiceSchema.index({ clientId: 1 })
 InvoiceSchema.index({ status: 1 })
 InvoiceSchema.index({ month: 1 })
-InvoiceSchema.index({ invoiceNumber: 1 }, { unique: true })
 InvoiceSchema.index({ clientId: 1, month: 1 })
 InvoiceSchema.index({ dueDate: 1, status: 1 })
 

@@ -81,6 +81,7 @@ const UploadBatchSchema = new Schema<IUploadBatch>(
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
+    suppressReservedKeysWarning: true,
   }
 )
 
