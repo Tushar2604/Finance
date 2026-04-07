@@ -1,0 +1,25 @@
+
+> bim-finance@1.0.0 build
+> next build
+
+   Γû▓ Next.js 15.1.0
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./app/api/alerts/[id]/resolve/route.ts:8:3
+Type error: Argument of type '(req: NextRequest, { params }: { params: Promise<Record<string, string>>; }, user: JWTPayload) => Promise<NextResponse>' is not assignable to parameter of type 'RouteHandler'.
+  Types of parameters '__1' and 'context' are incompatible.
+    Type '{ params: Record<string, string>; }' is not assignable to type '{ params: Promise<Record<string, string>>; }'.
+      Types of property 'params' are incompatible.
+        Type 'Record<string, string>' is missing the following properties from type 'Promise<Record<string, string>>': then, catch, finally, [Symbol.toStringTag]
+
+   6 |
+   7 | export const PATCH = withAuth(
+>  8 |   async (req: NextRequest, { params }: { params: Promise<Record<string, string>> }, user: JWTPayload): Promise<NextResponse> => {
+     |   ^
+   9 |     try {
+  10 |       const { id } = await params
+  11 |       const result = await resolveAlert(id, user.userId)

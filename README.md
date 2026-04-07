@@ -65,3 +65,4 @@ Log in with the local seeded Admin credentials to access the Dashboard.
 - `/lib/services`: Clean service methods. API routes should not include direct DB aggregation logic.
 - `/lib/db/models`: Defining robust Mongoose Schemas and pre-save hooks (e.g. dynamic net salary computations).
 - `/lib/hooks`: Utilizes `useQuery` mapped tightly to standard generic hooks enforcing cache re-validation periods.
+# Finance
