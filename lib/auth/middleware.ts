@@ -8,7 +8,7 @@ export interface AuthenticatedRequest extends NextRequest {
 
 type RouteHandler = (
   req: NextRequest,
-  context: { params: Record<string, string> },
+  context: any,
   user: JWTPayload
 ) => Promise<NextResponse> | NextResponse
 
@@ -38,7 +38,7 @@ function extractToken(req: NextRequest): string | null {
 export function withAuth(
   handler: RouteHandler,
   allowedRoles?: UserRole[]
-): (req: NextRequest, context: { params: Record<string, string> }) => Promise<NextResponse> {
+): (req: NextRequest, context: any) => Promise<NextResponse> {
   return async (req, context) => {
     const token = extractToken(req)
 
