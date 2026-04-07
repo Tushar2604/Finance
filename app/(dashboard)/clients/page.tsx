@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
-import apiClient, { PaginatedResponse } from '@/lib/api'
-import { Building2, Search, Plus } from 'lucide-react'
+import apiClient from '@/lib/api'
+import { Building2, Search, Plus, Download } from 'lucide-react'
+import { exportToCSV } from '@/lib/export'
 
 function useClients(filters: { page: number; search?: string }) {
   return useQuery({
@@ -30,6 +31,22 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const { data, isLoading, error } = useClients({ page, search })
 
+  const handleExport = () => {
+    const rows = (data?.data ?? []).map((c: any) => ({
+      'Client Name': c.name,
+      'Email': c.companyDetails?.email ?? '—',
+      'Phone': c.companyDetails?.phone ?? '—',
+      'Address': c.companyDetails?.address ?? '—',
+      'Tax Number': c.companyDetails?.taxNumber ?? '—',
+      'Contract Type': c.contractType ?? '—',
+      'Rate Card (AED)': c.rateCard ?? '—',
+      'Billing Type': c.billingType ?? '—',
+      'Credit Terms (days)': c.creditTerms ?? '—',
+      'Status': c.isActive ? 'Active' : 'Inactive',
+    }))
+    exportToCSV(rows, 'clients')
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
@@ -37,7 +54,12 @@ export default function ClientsPage() {
           <h2 className="text-2xl font-bold tracking-tight">Clients</h2>
           <p className="text-muted-foreground mt-1">Manage your client portfolio and contracts.</p>
         </div>
-        <Button className="shadow-md gap-2"><Plus className="h-4 w-4" /> Add Client</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <Button className="shadow-md gap-2"><Plus className="h-4 w-4" /> Add Client</Button>
+        </div>
       </div>
 
       <Card className="shadow-sm border-0 border-t-4 border-t-blue-500">
@@ -49,12 +71,7 @@ export default function ClientsPage() {
             </div>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search clients..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              />
+              <Input placeholder="Search clients..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
             </div>
           </div>
         </CardHeader>
@@ -62,7 +79,7 @@ export default function ClientsPage() {
           {isLoading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : error ? (
-            <div className="p-4 text-red-500 bg-red-50 rounded-lg">Failed to load clients. Ensure MongoDB is running and seeded.</div>
+            <div className="p-4 text-red-500 bg-red-50 rounded-lg">Failed to load clients.</div>
           ) : (
             <>
               <div className="rounded-md border overflow-hidden">
@@ -70,16 +87,17 @@ export default function ClientsPage() {
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead>Client Name</TableHead>
-                      <TableHead>Industry</TableHead>
+                      <TableHead>Contract Type</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
+                      <TableHead>Rate (AED/hr)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.data?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">
                           <Building2 className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                           No clients found. Run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code> to add sample data.
                         </TableCell>
@@ -88,9 +106,10 @@ export default function ClientsPage() {
                       data?.data?.map((client: any) => (
                         <TableRow key={client._id} className="hover:bg-slate-50 transition-colors cursor-pointer">
                           <TableCell className="font-semibold">{client.name}</TableCell>
-                          <TableCell>{client.industry ?? '—'}</TableCell>
+                          <TableCell><Badge variant="outline">{client.contractType ?? '—'}</Badge></TableCell>
                           <TableCell className="text-muted-foreground">{client.companyDetails?.email ?? '—'}</TableCell>
                           <TableCell className="text-muted-foreground">{client.companyDetails?.phone ?? '—'}</TableCell>
+                          <TableCell className="font-medium">{client.rateCard ?? '—'}</TableCell>
                           <TableCell>
                             <Badge variant={client.isActive ? 'default' : 'secondary'}>
                               {client.isActive ? 'Active' : 'Inactive'}

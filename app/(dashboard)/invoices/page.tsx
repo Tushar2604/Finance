@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
-import apiClient, { PaginatedResponse } from '@/lib/api'
-import { FileText, Search, Plus } from 'lucide-react'
+import apiClient from '@/lib/api'
+import { FileText, Search, Plus, Download } from 'lucide-react'
 import { format } from 'date-fns'
+import { exportToCSV } from '@/lib/export'
 
 function useInvoices(filters: { page: number; search?: string }) {
   return useQuery({
@@ -29,7 +30,6 @@ function useInvoices(filters: { page: number; search?: string }) {
 const statusVariant = (s: string) => {
   if (s === 'Paid') return 'default'
   if (s === 'Overdue') return 'destructive'
-  if (s === 'PartiallyPaid') return 'warning' as any
   return 'secondary'
 }
 
@@ -38,6 +38,21 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('')
   const { data, isLoading, error } = useInvoices({ page, search })
 
+  const handleExport = () => {
+    const rows = (data?.data ?? []).map((inv: any) => ({
+      'Invoice #': inv.invoiceNumber,
+      'Client': inv.clientId?.name ?? '—',
+      'Issued Date': inv.invoiceDate ? format(new Date(inv.invoiceDate), 'yyyy-MM-dd') : '—',
+      'Due Date': inv.dueDate ? format(new Date(inv.dueDate), 'yyyy-MM-dd') : '—',
+      'Subtotal (AED)': inv.subtotal,
+      'VAT (AED)': inv.vatAmount,
+      'Total (AED)': inv.totalAmount,
+      'Paid (AED)': inv.paidAmount,
+      'Status': inv.status,
+    }))
+    exportToCSV(rows, 'invoices')
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
@@ -45,7 +60,12 @@ export default function InvoicesPage() {
           <h2 className="text-2xl font-bold tracking-tight">Invoices</h2>
           <p className="text-muted-foreground mt-1">Track all client invoices and payment status.</p>
         </div>
-        <Button className="shadow-md gap-2"><Plus className="h-4 w-4" /> Create Invoice</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <Button className="shadow-md gap-2"><Plus className="h-4 w-4" /> Create Invoice</Button>
+        </div>
       </div>
 
       <Card className="shadow-sm border-0 border-t-4 border-t-emerald-500">
@@ -65,49 +85,62 @@ export default function InvoicesPage() {
           {isLoading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : error ? (
-            <div className="p-4 text-red-500 bg-red-50 rounded-lg">Failed to load invoices. Ensure MongoDB is running and seeded.</div>
+            <div className="p-4 text-red-500 bg-red-50 rounded-lg">Failed to load invoices.</div>
           ) : (
-            <div className="rounded-md border overflow-hidden">
-              <Table>
-                <TableHeader className="bg-slate-50">
-                  <TableRow>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Issued</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Paid</TableHead>
-                    <TableHead>VAT</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.data?.length === 0 ? (
+            <>
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">
-                        <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                        No invoices found. Run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code> to add sample data.
-                      </TableCell>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Issued</TableHead>
+                      <TableHead>Due</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Paid</TableHead>
+                      <TableHead>VAT</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ) : (
-                    data?.data?.map((inv: any) => (
-                      <TableRow key={inv._id} className="hover:bg-slate-50 transition-colors cursor-pointer text-sm">
-                        <TableCell className="font-mono font-semibold text-blue-600">{inv.invoiceNumber}</TableCell>
-                        <TableCell>{inv.clientId?.name ?? '—'}</TableCell>
-                        <TableCell className="text-muted-foreground">{inv.issuedDate ? format(new Date(inv.issuedDate), 'MMM dd, yyyy') : '—'}</TableCell>
-                        <TableCell className="text-muted-foreground">{inv.dueDate ? format(new Date(inv.dueDate), 'MMM dd, yyyy') : '—'}</TableCell>
-                        <TableCell className="font-semibold">${inv.totalAmount?.toLocaleString()}</TableCell>
-                        <TableCell className="text-emerald-600">${inv.paidAmount?.toLocaleString()}</TableCell>
-                        <TableCell className="text-muted-foreground">${inv.vatAmount?.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(inv.status)}>{inv.status}</Badge>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.data?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">
+                          <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                          No invoices found. Run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code> to add sample data.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      data?.data?.map((inv: any) => (
+                        <TableRow key={inv._id} className="hover:bg-slate-50 transition-colors cursor-pointer text-sm">
+                          <TableCell className="font-mono font-semibold text-blue-600">{inv.invoiceNumber}</TableCell>
+                          <TableCell>{inv.clientId?.name ?? '—'}</TableCell>
+                          <TableCell className="text-muted-foreground">{inv.invoiceDate ? format(new Date(inv.invoiceDate), 'MMM dd, yyyy') : '—'}</TableCell>
+                          <TableCell className="text-muted-foreground">{inv.dueDate ? format(new Date(inv.dueDate), 'MMM dd, yyyy') : '—'}</TableCell>
+                          <TableCell className="font-semibold">AED {inv.totalAmount?.toLocaleString()}</TableCell>
+                          <TableCell className="text-emerald-600">AED {inv.paidAmount?.toLocaleString()}</TableCell>
+                          <TableCell className="text-muted-foreground">AED {inv.vatAmount?.toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={statusVariant(inv.status)}>{inv.status}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {data?.pagination && data.pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Page {data.pagination.page} of {data.pagination.totalPages} — {data.pagination.total} invoices
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={!data.pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}>Previous</Button>
+                    <Button variant="outline" size="sm" disabled={!data.pagination.hasNextPage} onClick={() => setPage(p => p + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

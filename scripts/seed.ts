@@ -9,8 +9,6 @@
 import mongoose from 'mongoose'
 import * as dotenv from 'dotenv'
 import path from 'path'
-import bcrypt from 'bcryptjs'
-
 // Load environment variables from .env.local then .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
 dotenv.config({ path: path.resolve(process.cwd(), '.env') })
@@ -77,12 +75,12 @@ async function clearCollections() {
 // ─── Seed Users ─────────────────────────────────────────────────────────────
 async function seedUsers() {
   log('Seeding Demo Users...')
-  const hash = await bcrypt.hash('Demo@123', 10)
+  const plainPassword = 'Demo@123'
 
   const users = await User.create([
-    { name: 'Admin Manager', email: 'admin@demo.com', password: hash, role: 'Admin', isActive: true, lastLogin: new Date() },
-    { name: 'Finance Lead', email: 'finance@demo.com', password: hash, role: 'Finance', isActive: true, lastLogin: new Date() },
-    { name: 'HR Coordinator', email: 'hr@demo.com', password: hash, role: 'Manager', isActive: true, lastLogin: null }
+    { name: 'Admin Manager', email: 'admin@demo.com', password: plainPassword, role: 'Admin', isActive: true, lastLogin: new Date() },
+    { name: 'Finance Lead', email: 'finance@demo.com', password: plainPassword, role: 'Finance', isActive: true, lastLogin: new Date() },
+    { name: 'HR Coordinator', email: 'hr@demo.com', password: plainPassword, role: 'Manager', isActive: true, lastLogin: null }
   ])
 
   users.forEach((u) => ok(`${u.role}: ${u.email}`))
