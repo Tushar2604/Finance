@@ -49,6 +49,32 @@ export interface Employee360 {
   }>
 }
 
+type EmployeeMutationInput = Omit<Partial<IEmployee>, 'assignedClientId' | 'assignedProjectId'> & {
+  assignedClientId?: mongoose.Types.ObjectId | string | null
+  assignedProjectId?: mongoose.Types.ObjectId | string | null
+}
+
+function normalizeReferenceId(
+  value: mongoose.Types.ObjectId | string | null | undefined,
+  fieldName: string
+): mongoose.Types.ObjectId | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (value instanceof mongoose.Types.ObjectId) return value
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw Object.assign(new Error(`Invalid ${fieldName}`), { statusCode: 400 })
+  }
+  return new mongoose.Types.ObjectId(value)
+}
+
+function normalizeEmployeeMutationInput(data: EmployeeMutationInput): Partial<IEmployee> {
+  return {
+    ...data,
+    assignedClientId: normalizeReferenceId(data.assignedClientId, 'assigned client ID'),
+    assignedProjectId: normalizeReferenceId(data.assignedProjectId, 'assigned project ID'),
+  } as Partial<IEmployee>
+}
+
 export async function getEmployees(filters: EmployeeFilters): Promise<PaginatedEmployees> {
   await dbConnect()
 
@@ -106,17 +132,18 @@ export async function getEmployeeById(id: string): Promise<IEmployee> {
   return employee as unknown as IEmployee
 }
 
-export async function createEmployee(data: Partial<IEmployee>): Promise<IEmployee> {
+export async function createEmployee(data: EmployeeMutationInput): Promise<IEmployee> {
   await dbConnect()
+  const normalizedData = normalizeEmployeeMutationInput(data)
 
   // Auto-generate employee code if not provided
-  if (!data.employeeCode) {
+  if (!normalizedData.employeeCode) {
     const count = await Employee.countDocuments()
-    data.employeeCode = generateEmployeeCode(count + 1)
+    normalizedData.employeeCode = generateEmployeeCode(count + 1)
   }
 
   // Ensure unique code
-  let code = data.employeeCode
+  let code = normalizedData.employeeCode
   let attempts = 0
   while (await Employee.exists({ employeeCode: code })) {
     const count = await Employee.countDocuments()
@@ -124,20 +151,21 @@ export async function createEmployee(data: Partial<IEmployee>): Promise<IEmploye
     attempts++
     if (attempts > 10) throw new Error('Could not generate unique employee code')
   }
-  data.employeeCode = code
+  normalizedData.employeeCode = code
 
-  const employee = await Employee.create(data)
+  const employee = await Employee.create(normalizedData)
   return employee
 }
 
-export async function updateEmployee(id: string, data: Partial<IEmployee>): Promise<IEmployee> {
+export async function updateEmployee(id: string, data: EmployeeMutationInput): Promise<IEmployee> {
   await dbConnect()
+  const normalizedData = normalizeEmployeeMutationInput(data)
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw Object.assign(new Error('Invalid employee ID'), { statusCode: 400 })
   }
 
-  const updated = await Employee.findByIdAndUpdate(id, data, {
+  const updated = await Employee.findByIdAndUpdate(id, normalizedData, {
     new: true,
     runValidators: true,
   })
@@ -192,7 +220,10 @@ export async function getEmployee360(employeeId: string): Promise<Employee360> {
       .lean(),
     Project.find({
       $or: [
-        { _id: (employee as IEmployee & { assignedProjectId?: mongoose.Types.ObjectId }).assignedProjectId },
+        {
+          _id: (employee as unknown as IEmployee & { assignedProjectId?: mongoose.Types.ObjectId })
+            .assignedProjectId,
+        },
       ],
     })
       .select('name status startDate endDate')
@@ -217,7 +248,7 @@ export async function getEmployee360(employeeId: string): Promise<Employee360> {
     totalSalaryPaid,
     profitContribution,
     utilizationRate,
-    projectHistory: projectHistory as Array<{
+    projectHistory: projectHistory as unknown as Array<{
       _id: string
       name: string
       status: string

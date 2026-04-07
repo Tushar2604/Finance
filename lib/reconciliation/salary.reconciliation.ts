@@ -92,7 +92,7 @@ export async function reconcileSalaries(month: string): Promise<SalaryReconcilia
   const employeeIds = salaries.map((s) => s.employeeId)
   const employees = await Employee.find({ _id: { $in: employeeIds } }).lean()
   const employeeMap = new Map<string, IEmployee>(
-    employees.map((e) => [e._id.toString(), e as IEmployee])
+    employees.map((e) => [e._id.toString(), e as unknown as IEmployee])
   )
 
   // Fetch all bank debit transactions within the month
@@ -121,7 +121,9 @@ export async function reconcileSalaries(month: string): Promise<SalaryReconcilia
 
     const netSalary = salary.netSalary ?? salary.baseSalary + salary.overtime - salary.deductions
     const matchingTxs = bankDebits.filter(
-      (tx) => !usedBankTxIds.has(tx._id.toString()) && transactionMatchesSalary(tx as IBankTransaction, employee, netSalary)
+      (tx) =>
+        !usedBankTxIds.has(tx._id.toString()) &&
+        transactionMatchesSalary(tx as unknown as IBankTransaction, employee, netSalary)
     )
 
     if (matchingTxs.length === 0) {

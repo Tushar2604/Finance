@@ -1,4 +1,4 @@
-import mongoose, { Document, Model, Schema } from 'mongoose'
+import mongoose, { Model, Schema } from 'mongoose'
 
 export type UploadBatchType = 'BankStatement' | 'WPSReport' | 'ExpenseSheet'
 export type UploadBatchStatus = 'Processing' | 'Completed' | 'Failed'
@@ -9,7 +9,7 @@ export interface IUploadBatchError {
   message: string
 }
 
-export interface IUploadBatch extends Document {
+export interface IUploadBatch {
   _id: mongoose.Types.ObjectId
   type: UploadBatchType
   filename: string

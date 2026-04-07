@@ -229,11 +229,11 @@ export async function runFuzzyMatchForMonth(
   ])
 
   return fuzzyMatchTransactions(
-    unmatchedTxs as IBankTransaction[],
+    unmatchedTxs as unknown as IBankTransaction[],
     {
-      invoices: invoices as IInvoice[],
-      salaries: salaries as ISalary[],
-      expenses: expenses as IExpense[],
+      invoices: invoices as unknown as IInvoice[],
+      salaries: salaries as unknown as ISalary[],
+      expenses: expenses as unknown as IExpense[],
     },
     userId
   )

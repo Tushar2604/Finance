@@ -27,6 +27,48 @@ export interface PaginatedTimesheets {
   }
 }
 
+type TimesheetMutationInput = Omit<Partial<ITimesheet>, 'employeeId' | 'clientId' | 'projectId'> & {
+  employeeId?: mongoose.Types.ObjectId | string
+  clientId?: mongoose.Types.ObjectId | string
+  projectId?: mongoose.Types.ObjectId | string | null
+}
+
+function normalizeTimesheetMutationInput(data: TimesheetMutationInput): Partial<ITimesheet> {
+  const normalized: TimesheetMutationInput = { ...data }
+
+  if (data.employeeId !== undefined) {
+    if (data.employeeId instanceof mongoose.Types.ObjectId) {
+      normalized.employeeId = data.employeeId
+    } else if (mongoose.Types.ObjectId.isValid(data.employeeId)) {
+      normalized.employeeId = new mongoose.Types.ObjectId(data.employeeId)
+    } else {
+      throw Object.assign(new Error('Invalid employee ID'), { statusCode: 400 })
+    }
+  }
+
+  if (data.clientId !== undefined) {
+    if (data.clientId instanceof mongoose.Types.ObjectId) {
+      normalized.clientId = data.clientId
+    } else if (mongoose.Types.ObjectId.isValid(data.clientId)) {
+      normalized.clientId = new mongoose.Types.ObjectId(data.clientId)
+    } else {
+      throw Object.assign(new Error('Invalid client ID'), { statusCode: 400 })
+    }
+  }
+
+  if (data.projectId !== undefined) {
+    if (data.projectId === null || data.projectId instanceof mongoose.Types.ObjectId) {
+      normalized.projectId = data.projectId
+    } else if (mongoose.Types.ObjectId.isValid(data.projectId)) {
+      normalized.projectId = new mongoose.Types.ObjectId(data.projectId)
+    } else {
+      throw Object.assign(new Error('Invalid project ID'), { statusCode: 400 })
+    }
+  }
+
+  return normalized as Partial<ITimesheet>
+}
+
 export async function getTimesheets(filters: TimesheetFilters): Promise<PaginatedTimesheets> {
   await dbConnect()
 
@@ -83,28 +125,29 @@ export async function getTimesheetById(id: string): Promise<ITimesheet> {
   return timesheet as unknown as ITimesheet
 }
 
-export async function createTimesheet(data: Partial<ITimesheet>): Promise<ITimesheet> {
+export async function createTimesheet(data: TimesheetMutationInput): Promise<ITimesheet> {
   await dbConnect()
+  const normalizedData = normalizeTimesheetMutationInput(data)
 
   // Check for duplicate
   const existing = await Timesheet.findOne({
-    employeeId: data.employeeId,
-    clientId: data.clientId,
-    month: data.month,
+    employeeId: normalizedData.employeeId,
+    clientId: normalizedData.clientId,
+    month: normalizedData.month,
   })
 
   if (existing) {
     throw Object.assign(
-      new Error(`Timesheet already exists for this employee, client, and month (${data.month})`),
+      new Error(`Timesheet already exists for this employee, client, and month (${normalizedData.month})`),
       { statusCode: 409 }
     )
   }
 
-  const timesheet = await Timesheet.create(data)
+  const timesheet = await Timesheet.create(normalizedData)
   return timesheet
 }
 
-export async function updateTimesheet(id: string, data: Partial<ITimesheet>): Promise<ITimesheet> {
+export async function updateTimesheet(id: string, data: TimesheetMutationInput): Promise<ITimesheet> {
   await dbConnect()
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -120,7 +163,7 @@ export async function updateTimesheet(id: string, data: Partial<ITimesheet>): Pr
     throw Object.assign(new Error('Cannot update an approved timesheet'), { statusCode: 400 })
   }
 
-  const updated = await Timesheet.findByIdAndUpdate(id, data, {
+  const updated = await Timesheet.findByIdAndUpdate(id, normalizeTimesheetMutationInput(data), {
     new: true,
     runValidators: true,
   })

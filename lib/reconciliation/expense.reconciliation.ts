@@ -134,14 +134,14 @@ export async function reconcileExpenses(month: string): Promise<ExpenseReconcili
   const matchedExpenseIds = new Set<string>()
 
   // Detect duplicate expenses first
-  result.duplicates = detectDuplicateExpenses(expenses as IExpense[])
+  result.duplicates = detectDuplicateExpenses(expenses as unknown as IExpense[])
 
   // Match each expense to a bank debit
   for (const expense of expenses) {
     const candidates = bankDebits.filter(
       (tx) =>
         !usedBankTxIds.has(tx._id.toString()) &&
-        transactionMatchesExpense(tx as IBankTransaction, expense as IExpense)
+        transactionMatchesExpense(tx as unknown as IBankTransaction, expense as unknown as IExpense)
     )
 
     if (candidates.length === 0) {

@@ -98,7 +98,7 @@ export async function reconcileInvoices(month: string): Promise<InvoiceReconcili
   const clientIds = invoices.map((inv) => inv.clientId)
   const clients = await Client.find({ _id: { $in: clientIds } }).lean()
   const clientMap = new Map<string, IClient>(
-    clients.map((c) => [c._id.toString(), c as IClient])
+    clients.map((c) => [c._id.toString(), c as unknown as IClient])
   )
 
   // Fetch all bank credit transactions in the month period + 30 days
@@ -126,7 +126,7 @@ export async function reconcileInvoices(month: string): Promise<InvoiceReconcili
     const candidates = bankCredits.filter(
       (tx) =>
         !usedBankTxIds.has(tx._id.toString()) &&
-        creditMatchesInvoice(tx as IBankTransaction, invoice as IInvoice, clientName)
+        creditMatchesInvoice(tx as unknown as IBankTransaction, invoice as unknown as IInvoice, clientName)
     )
 
     if (candidates.length === 0) {

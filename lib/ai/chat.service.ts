@@ -199,7 +199,7 @@ async function runTopClientsByRevenue(
   const filter: Record<string, unknown> = { status: { $ne: 'Cancelled' } }
   if (month) filter.month = month
 
-  const pipeline = [
+  const pipeline: Record<string, unknown>[] = [
     { $match: filter },
     {
       $group: {
@@ -223,7 +223,7 @@ async function runTopClientsByRevenue(
         as: 'client',
       },
     },
-    { $unwind: { path: '$client', preserveNullAndEmpty: true } },
+    { $unwind: { path: '$client', preserveNullAndEmptyArrays: true } },
     {
       $project: {
         _id: 0,
@@ -242,7 +242,7 @@ async function runTopClientsByRevenue(
     },
   ]
 
-  const results = await Invoice.aggregate(pipeline)
+  const results = await Invoice.aggregate(pipeline as any)
 
   return {
     data: { topClients: results, month: month ?? 'all-time' },
@@ -253,7 +253,7 @@ async function runTopClientsByRevenue(
 async function runExpenseSummary(month: string): Promise<{ data: unknown; mongoOp: string }> {
   const { start, end } = getMonthDateRange(month)
 
-  const pipeline = [
+  const pipeline: Record<string, unknown>[] = [
     {
       $match: {
         date: { $gte: start, $lte: end },
@@ -271,7 +271,7 @@ async function runExpenseSummary(month: string): Promise<{ data: unknown; mongoO
     { $sort: { total: -1 } },
   ]
 
-  const byCategory = await Expense.aggregate(pipeline)
+  const byCategory = await Expense.aggregate(pipeline as any)
   const grandTotal = byCategory.reduce((sum: number, cat: { total: number }) => sum + cat.total, 0)
 
   return {

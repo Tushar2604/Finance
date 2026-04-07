@@ -24,6 +24,24 @@ export interface PaginatedExpenses {
   }
 }
 
+type ExpenseMutationInput = Omit<Partial<IExpense>, 'projectId'> & {
+  projectId?: mongoose.Types.ObjectId | string | null
+}
+
+function normalizeExpenseMutationInput(data: ExpenseMutationInput): Partial<IExpense> {
+  const normalized: ExpenseMutationInput = { ...data }
+  if (data.projectId !== undefined) {
+    if (data.projectId === null || data.projectId instanceof mongoose.Types.ObjectId) {
+      normalized.projectId = data.projectId
+    } else if (mongoose.Types.ObjectId.isValid(data.projectId)) {
+      normalized.projectId = new mongoose.Types.ObjectId(data.projectId)
+    } else {
+      throw Object.assign(new Error('Invalid project ID'), { statusCode: 400 })
+    }
+  }
+  return normalized as Partial<IExpense>
+}
+
 export async function getExpenses(filters: ExpenseFilters): Promise<PaginatedExpenses> {
   await dbConnect()
 
@@ -72,14 +90,9 @@ export async function getExpenseById(id: string): Promise<IExpense> {
   return expense as unknown as IExpense
 }
 
-export async function createExpense(data: Partial<IExpense>, userId: string): Promise<IExpense> {
+export async function createExpense(data: ExpenseMutationInput, userId: string): Promise<IExpense> {
   await dbConnect()
-  
-  if(!data.employeeId) {
-     data.employeeId = new mongoose.Types.ObjectId(userId)
-  }
-
-  const expense = await Expense.create(data)
+  const expense = await Expense.create(normalizeExpenseMutationInput(data))
 
   await AuditLog.create({
     userId: new mongoose.Types.ObjectId(userId),
@@ -93,7 +106,7 @@ export async function createExpense(data: Partial<IExpense>, userId: string): Pr
   return expense
 }
 
-export async function updateExpense(id: string, data: Partial<IExpense>, userId: string): Promise<IExpense> {
+export async function updateExpense(id: string, data: ExpenseMutationInput, userId: string): Promise<IExpense> {
   await dbConnect()
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -106,7 +119,10 @@ export async function updateExpense(id: string, data: Partial<IExpense>, userId:
   }
 
   const previousData = existing.toObject()
-  const updated = await Expense.findByIdAndUpdate(id, data, { new: true, runValidators: true })
+  const updated = await Expense.findByIdAndUpdate(id, normalizeExpenseMutationInput(data), {
+    new: true,
+    runValidators: true,
+  })
 
   await AuditLog.create({
     userId: new mongoose.Types.ObjectId(userId),

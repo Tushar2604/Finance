@@ -19,7 +19,7 @@ const handler = async (
       )
     }
 
-    const result = await runFullReconciliation(month, user.sub)
+    const result = await runFullReconciliation(month, user.userId)
 
     return NextResponse.json({
       success: true,

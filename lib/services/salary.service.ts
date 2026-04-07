@@ -24,6 +24,24 @@ export interface PaginatedSalaries {
   }
 }
 
+type SalaryMutationInput = Omit<Partial<ISalary>, 'employeeId'> & {
+  employeeId?: mongoose.Types.ObjectId | string
+}
+
+function normalizeSalaryMutationInput(data: SalaryMutationInput): Partial<ISalary> {
+  const normalized: SalaryMutationInput = { ...data }
+  if (data.employeeId !== undefined) {
+    if (data.employeeId instanceof mongoose.Types.ObjectId) {
+      normalized.employeeId = data.employeeId
+    } else if (mongoose.Types.ObjectId.isValid(data.employeeId)) {
+      normalized.employeeId = new mongoose.Types.ObjectId(data.employeeId)
+    } else {
+      throw Object.assign(new Error('Invalid employee ID'), { statusCode: 400 })
+    }
+  }
+  return normalized as Partial<ISalary>
+}
+
 export async function getSalaries(filters: SalaryFilters): Promise<PaginatedSalaries> {
   await dbConnect()
 
@@ -70,16 +88,17 @@ export async function getSalaryById(id: string): Promise<ISalary> {
   return salary as unknown as ISalary
 }
 
-export async function createSalary(data: Partial<ISalary>, userId: string): Promise<ISalary> {
+export async function createSalary(data: SalaryMutationInput, userId: string): Promise<ISalary> {
   await dbConnect()
+  const normalizedData = normalizeSalaryMutationInput(data)
 
   // Prevent duplicate month for same employee
-  const existing = await Salary.findOne({ employeeId: data.employeeId, month: data.month })
+  const existing = await Salary.findOne({ employeeId: normalizedData.employeeId, month: normalizedData.month })
   if (existing) {
     throw Object.assign(new Error(`Salary for ${data.month} already exists for this employee.`), { statusCode: 400 })
   }
 
-  const salary = await Salary.create(data)
+  const salary = await Salary.create(normalizedData)
 
   await AuditLog.create({
     userId: new mongoose.Types.ObjectId(userId),
@@ -93,7 +112,7 @@ export async function createSalary(data: Partial<ISalary>, userId: string): Prom
   return salary
 }
 
-export async function updateSalary(id: string, data: Partial<ISalary>, userId: string): Promise<ISalary> {
+export async function updateSalary(id: string, data: SalaryMutationInput, userId: string): Promise<ISalary> {
   await dbConnect()
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -106,7 +125,10 @@ export async function updateSalary(id: string, data: Partial<ISalary>, userId: s
   }
 
   const previousData = existing.toObject()
-  const updated = await Salary.findByIdAndUpdate(id, data, { new: true, runValidators: true })
+  const updated = await Salary.findByIdAndUpdate(id, normalizeSalaryMutationInput(data), {
+    new: true,
+    runValidators: true,
+  })
 
   await AuditLog.create({
     userId: new mongoose.Types.ObjectId(userId),

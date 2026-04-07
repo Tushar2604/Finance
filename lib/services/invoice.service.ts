@@ -53,6 +53,36 @@ export interface VATReport {
   invoiceCount: number
 }
 
+type InvoiceMutationInput = Omit<Partial<IInvoice>, 'clientId' | 'employeeId' | 'projectId' | 'timesheetId'> & {
+  clientId?: mongoose.Types.ObjectId | string
+  employeeId?: mongoose.Types.ObjectId | string | null
+  projectId?: mongoose.Types.ObjectId | string | null
+  timesheetId?: mongoose.Types.ObjectId | string | null
+}
+
+function normalizeObjectId(
+  value: mongoose.Types.ObjectId | string | null | undefined,
+  fieldName: string
+): mongoose.Types.ObjectId | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (value instanceof mongoose.Types.ObjectId) return value
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    throw Object.assign(new Error(`Invalid ${fieldName}`), { statusCode: 400 })
+  }
+  return new mongoose.Types.ObjectId(value)
+}
+
+function normalizeInvoiceMutationInput(data: InvoiceMutationInput): Partial<IInvoice> {
+  return {
+    ...data,
+    clientId: normalizeObjectId(data.clientId, 'client ID') as mongoose.Types.ObjectId | undefined,
+    employeeId: normalizeObjectId(data.employeeId, 'employee ID'),
+    projectId: normalizeObjectId(data.projectId, 'project ID'),
+    timesheetId: normalizeObjectId(data.timesheetId, 'timesheet ID'),
+  } as Partial<IInvoice>
+}
+
 export async function getInvoices(filters: InvoiceFilters): Promise<PaginatedInvoices> {
   await dbConnect()
 
@@ -105,24 +135,25 @@ export async function getInvoiceById(id: string): Promise<IInvoice> {
   return invoice as unknown as IInvoice
 }
 
-export async function createInvoice(data: Partial<IInvoice>, userId: string): Promise<IInvoice> {
+export async function createInvoice(data: InvoiceMutationInput, userId: string): Promise<IInvoice> {
   await dbConnect()
 
   // Auto-generate invoice number
   const invoiceNumber = generateInvoiceNumber()
 
   // Auto-calculate subtotal, VAT, total if not provided
-  const rate = data.rate ?? 0
-  const hours = data.hours ?? 0
+  const normalizedData = normalizeInvoiceMutationInput(data)
+  const rate = normalizedData.rate ?? 0
+  const hours = normalizedData.hours ?? 0
   const subtotal = data.subtotal ?? parseFloat((rate * hours).toFixed(2))
   const { vatAmount, totalWithVAT } = calculateVAT(subtotal)
 
   const invoiceData = {
-    ...data,
+    ...normalizedData,
     invoiceNumber,
-    subtotal,
-    vatAmount: data.vatAmount ?? vatAmount,
-    totalAmount: data.totalAmount ?? totalWithVAT,
+    subtotal: normalizedData.subtotal ?? subtotal,
+    vatAmount: normalizedData.vatAmount ?? vatAmount,
+    totalAmount: normalizedData.totalAmount ?? totalWithVAT,
   }
 
   const invoice = await Invoice.create(invoiceData)
@@ -141,7 +172,7 @@ export async function createInvoice(data: Partial<IInvoice>, userId: string): Pr
 
 export async function updateInvoice(
   id: string,
-  data: Partial<IInvoice>,
+  data: InvoiceMutationInput,
   userId: string
 ): Promise<IInvoice> {
   await dbConnect()
@@ -160,7 +191,7 @@ export async function updateInvoice(
   }
 
   const previousData = existing.toObject()
-  const updated = await Invoice.findByIdAndUpdate(id, data, {
+  const updated = await Invoice.findByIdAndUpdate(id, normalizeInvoiceMutationInput(data), {
     new: true,
     runValidators: true,
   })

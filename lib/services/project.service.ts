@@ -38,6 +38,24 @@ export interface PaginatedProjects {
   }
 }
 
+type ProjectMutationInput = Omit<Partial<IProject>, 'clientId'> & {
+  clientId?: mongoose.Types.ObjectId | string
+}
+
+function normalizeProjectMutationInput(data: ProjectMutationInput): Partial<IProject> {
+  const normalized: ProjectMutationInput = { ...data }
+  if (data.clientId !== undefined) {
+    if (data.clientId instanceof mongoose.Types.ObjectId) {
+      normalized.clientId = data.clientId
+    } else if (mongoose.Types.ObjectId.isValid(data.clientId)) {
+      normalized.clientId = new mongoose.Types.ObjectId(data.clientId)
+    } else {
+      throw Object.assign(new Error('Invalid client ID'), { statusCode: 400 })
+    }
+  }
+  return normalized as Partial<IProject>
+}
+
 export async function getProjects(filters: ProjectFilters): Promise<PaginatedProjects> {
   await dbConnect()
 
@@ -90,20 +108,20 @@ export async function getProjectById(id: string): Promise<IProject> {
   return project as unknown as IProject
 }
 
-export async function createProject(data: Partial<IProject>): Promise<IProject> {
+export async function createProject(data: ProjectMutationInput): Promise<IProject> {
   await dbConnect()
-  const project = await Project.create(data)
+  const project = await Project.create(normalizeProjectMutationInput(data))
   return project
 }
 
-export async function updateProject(id: string, data: Partial<IProject>): Promise<IProject> {
+export async function updateProject(id: string, data: ProjectMutationInput): Promise<IProject> {
   await dbConnect()
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw Object.assign(new Error('Invalid project ID'), { statusCode: 400 })
   }
 
-  const updated = await Project.findByIdAndUpdate(id, data, {
+  const updated = await Project.findByIdAndUpdate(id, normalizeProjectMutationInput(data), {
     new: true,
     runValidators: true,
   })
