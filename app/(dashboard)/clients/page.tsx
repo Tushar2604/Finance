@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -9,8 +10,28 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
-import { Building2, Search, Plus, Download } from 'lucide-react'
+import { Building2, Search, Plus, Download, Upload } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
+import ImportModal from '@/components/ImportModal'
+
+const IMPORT_COLUMNS = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'website', label: 'Website' },
+  { key: 'industry', label: 'Industry' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'address', label: 'Address' },
+  { key: 'taxNumber', label: 'Tax Number' },
+  { key: 'contractType', label: 'Contract Type' },
+  { key: 'rateCard', label: 'Rate Card' },
+  { key: 'billingType', label: 'Billing Type' },
+  { key: 'creditTerms', label: 'Credit Terms' },
+  { key: 'isActive', label: 'Is Active' },
+]
+
+const TEMPLATE_ROWS = [
+  { name: 'Acme Corp', website: 'https://acme.com', industry: 'FinTech', email: 'finance@acme.com', phone: '+971501234567', address: 'Dubai, UAE', taxNumber: 'TRN100200300400', contractType: 'LPO', rateCard: '250', billingType: 'Monthly', creditTerms: '30', isActive: 'true' },
+]
 
 function useClients(filters: { page: number; search?: string }) {
   return useQuery({
@@ -29,32 +50,48 @@ function useClients(filters: { page: number; search?: string }) {
 export default function ClientsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const { data, isLoading, error } = useClients({ page, search })
+  const [importOpen, setImportOpen] = useState(false)
+  const { data, isLoading, error, refetch } = useClients({ page, search })
 
   const handleExport = () => {
     const rows = (data?.data ?? []).map((c: any) => ({
-      'Client Name': c.name,
-      'Email': c.companyDetails?.email ?? '—',
-      'Phone': c.companyDetails?.phone ?? '—',
-      'Address': c.companyDetails?.address ?? '—',
-      'Tax Number': c.companyDetails?.taxNumber ?? '—',
-      'Contract Type': c.contractType ?? '—',
-      'Rate Card (AED)': c.rateCard ?? '—',
-      'Billing Type': c.billingType ?? '—',
-      'Credit Terms (days)': c.creditTerms ?? '—',
-      'Status': c.isActive ? 'Active' : 'Inactive',
+      name: c.name,
+      website: c.website ?? '',
+      industry: c.industry ?? '',
+      email: c.companyDetails?.email ?? '',
+      phone: c.companyDetails?.phone ?? '',
+      address: c.companyDetails?.address ?? '',
+      taxNumber: c.companyDetails?.taxNumber ?? '',
+      contractType: c.contractType ?? '',
+      rateCard: c.rateCard ?? '',
+      billingType: c.billingType ?? '',
+      creditTerms: c.creditTerms ?? '',
+      isActive: c.isActive ? 'true' : 'false',
     }))
     exportToCSV(rows, 'clients')
   }
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        entityLabel="Clients"
+        apiEndpoint="/clients/import"
+        columns={IMPORT_COLUMNS}
+        templateRows={TEMPLATE_ROWS}
+        onSuccess={() => refetch()}
+      />
+
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Clients</h2>
           <p className="text-muted-foreground mt-1">Manage your client portfolio and contracts.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" /> Import CSV
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
@@ -67,7 +104,7 @@ export default function ClientsPage() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>Client Directory</CardTitle>
-              <CardDescription>All active and inactive clients.</CardDescription>
+              <CardDescription>Click a client name to view their full profile.</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -87,9 +124,9 @@ export default function ClientsPage() {
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead>Client Name</TableHead>
-                      <TableHead>Contract Type</TableHead>
+                      <TableHead>Industry</TableHead>
+                      <TableHead>Contract</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
                       <TableHead>Rate (AED/hr)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -99,16 +136,20 @@ export default function ClientsPage() {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">
                           <Building2 className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                          No clients found. Run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code> to add sample data.
+                          No clients found. Import a CSV or run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code>.
                         </TableCell>
                       </TableRow>
                     ) : (
                       data?.data?.map((client: any) => (
-                        <TableRow key={client._id} className="hover:bg-slate-50 transition-colors cursor-pointer">
-                          <TableCell className="font-semibold">{client.name}</TableCell>
+                        <TableRow key={client._id} className="hover:bg-slate-50 transition-colors">
+                          <TableCell>
+                            <Link href={`/clients/${client._id}`} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                              {client.name}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{client.industry || '—'}</TableCell>
                           <TableCell><Badge variant="outline">{client.contractType ?? '—'}</Badge></TableCell>
                           <TableCell className="text-muted-foreground">{client.companyDetails?.email ?? '—'}</TableCell>
-                          <TableCell className="text-muted-foreground">{client.companyDetails?.phone ?? '—'}</TableCell>
                           <TableCell className="font-medium">{client.rateCard ?? '—'}</TableCell>
                           <TableCell>
                             <Badge variant={client.isActive ? 'default' : 'secondary'}>

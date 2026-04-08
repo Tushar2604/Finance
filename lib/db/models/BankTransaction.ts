@@ -6,12 +6,21 @@ export type MatchedEntityType = 'Invoice' | 'Salary' | 'Expense' | null
 
 export interface IBankTransaction extends Document {
   _id: mongoose.Types.ObjectId
+  transactionId: string
+  bankAccount: string
   date: Date
+  valueDate: Date
+  postedDate: Date
   description: string
   debit: number
   credit: number
   balance: number
+  currency: string
   reference: string
+  paymentChannel: string
+  swift: string
+  counterparty: string
+  counterpartyIban: string
   transactionType: TransactionType
   matchStatus: MatchStatus
   matchedEntityType: MatchedEntityType
@@ -24,9 +33,34 @@ export interface IBankTransaction extends Document {
 
 const BankTransactionSchema = new Schema<IBankTransaction>(
   {
+    transactionId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    bankAccount: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [200, 'Bank account name cannot exceed 200 characters'],
+    },
     date: {
       type: Date,
       required: [true, 'Transaction date is required'],
+    },
+    valueDate: {
+      type: Date,
+      default: null,
+    },
+    postedDate: {
+      type: Date,
+      default: null,
+    },
+    currency: {
+      type: String,
+      trim: true,
+      default: 'AED',
+      maxlength: [10, 'Currency cannot exceed 10 characters'],
     },
     description: {
       type: String,
@@ -53,6 +87,30 @@ const BankTransactionSchema = new Schema<IBankTransaction>(
       trim: true,
       default: '',
       maxlength: [200, 'Reference cannot exceed 200 characters'],
+    },
+    paymentChannel: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [100, 'Payment channel cannot exceed 100 characters'],
+    },
+    swift: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [50, 'SWIFT/UTR cannot exceed 50 characters'],
+    },
+    counterparty: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [300, 'Counterparty cannot exceed 300 characters'],
+    },
+    counterpartyIban: {
+      type: String,
+      trim: true,
+      default: '',
+      maxlength: [50, 'Counterparty IBAN cannot exceed 50 characters'],
     },
     transactionType: {
       type: String,

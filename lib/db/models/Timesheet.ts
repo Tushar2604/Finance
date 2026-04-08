@@ -9,8 +9,12 @@ export interface ITimesheet extends Document {
   projectId: mongoose.Types.ObjectId | null
   month: string // YYYY-MM
   workingDays: number
-  hours: number
+  hours: number           // total hours logged
+  billableHours: number   // hours billed to client
+  nonBillableHours: number
   overtimeHours: number
+  leaveDays: number
+  absentDays: number
   approvedBy: mongoose.Types.ObjectId | null
   approvalDate: Date | null
   status: TimesheetStatus
@@ -53,9 +57,31 @@ const TimesheetSchema = new Schema<ITimesheet>(
       min: [0, 'Hours cannot be negative'],
       max: [744, 'Hours cannot exceed 744 per month'],
     },
+    billableHours: {
+      type: Number,
+      min: [0, 'Billable hours cannot be negative'],
+      default: 0,
+    },
+    nonBillableHours: {
+      type: Number,
+      min: [0, 'Non-billable hours cannot be negative'],
+      default: 0,
+    },
     overtimeHours: {
       type: Number,
       min: [0, 'Overtime hours cannot be negative'],
+      default: 0,
+    },
+    leaveDays: {
+      type: Number,
+      min: [0, 'Leave days cannot be negative'],
+      max: [31, 'Leave days cannot exceed 31'],
+      default: 0,
+    },
+    absentDays: {
+      type: Number,
+      min: [0, 'Absent days cannot be negative'],
+      max: [31, 'Absent days cannot exceed 31'],
       default: 0,
     },
     approvedBy: {

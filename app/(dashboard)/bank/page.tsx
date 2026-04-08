@@ -7,12 +7,180 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { UploadCloud, FileText, CheckCircle2, Download } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import apiClient from '@/lib/api'
+import {
+  UploadCloud, FileText, CheckCircle2, Download, X,
+  ArrowUpRight, ArrowDownLeft, Calendar, CreditCard,
+  Building2, Hash, Banknote, Activity,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { exportToCSV } from '@/lib/export'
 
+function useBankTransaction(id: string | null) {
+  return useQuery({
+    queryKey: ['bank-tx', id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<any>(`/bank/${id}`)
+      return data.data
+    },
+    enabled: !!id,
+  })
+}
+
+function DetailRow({ label, value, mono, className }: {
+  label: string; value?: string | null; mono?: boolean; className?: string
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 py-2.5 border-b border-slate-50 last:border-0">
+      <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</span>
+      <span className={`text-sm font-medium text-slate-800 break-all ${mono ? 'font-mono' : ''} ${className ?? ''}`}>
+        {value || '—'}
+      </span>
+    </div>
+  )
+}
+
+function TransactionDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data: tx, isLoading } = useBankTransaction(id)
+
+  const isCredit = tx?.transactionType === 'Credit'
+  const amount = isCredit ? tx?.credit : tx?.debit
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drawer header */}
+        <div className={`px-6 pt-6 pb-4 shrink-0 ${isCredit ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-rose-500 to-red-600'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-white/80 text-sm font-medium">Transaction Detail</span>
+            <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48 bg-white/20" />
+              <Skeleton className="h-5 w-32 bg-white/20" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                {isCredit
+                  ? <ArrowDownLeft className="h-6 w-6 text-white" />
+                  : <ArrowUpRight className="h-6 w-6 text-white" />}
+                <span className="text-3xl font-bold text-white">
+                  {tx?.currency || 'AED'} {amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className={`${isCredit ? 'bg-emerald-700 text-white' : 'bg-rose-700 text-white'} text-xs`}>
+                  {tx?.transactionType}
+                </Badge>
+                <Badge className="bg-white/20 text-white text-xs">{tx?.matchStatus}</Badge>
+              </div>
+              <p className="text-white/90 text-sm mt-2 leading-snug">{tx?.description}</p>
+            </>
+          )}
+        </div>
+
+        {/* Drawer body */}
+        <div className="flex-1 overflow-y-auto px-6 py-2">
+          {isLoading ? (
+            <div className="space-y-3 pt-4">
+              {[...Array(10)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : (
+            <div>
+              {/* IDs & Reference */}
+              <div className="pt-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Hash className="h-3.5 w-3.5" /> Identification
+                </p>
+                <DetailRow label="Transaction ID" value={tx?.transactionId || tx?._id?.toString().slice(-12).toUpperCase().replace(/(.{4})/g, '$1-').slice(0,-1)} mono />
+                <DetailRow label="Reference No" value={tx?.reference} mono />
+                <DetailRow label="SWIFT / UTR" value={tx?.swift} mono />
+              </div>
+
+              {/* Dates */}
+              <div className="pt-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" /> Dates
+                </p>
+                <DetailRow label="Value Date" value={tx?.valueDate ? format(new Date(tx.valueDate), 'dd MMM yyyy') : tx?.date ? format(new Date(tx.date), 'dd MMM yyyy') : null} />
+                <DetailRow label="Posted Date" value={tx?.postedDate ? format(new Date(tx.postedDate), 'dd MMM yyyy') : tx?.date ? format(new Date(tx.date), 'dd MMM yyyy') : null} />
+              </div>
+
+              {/* Bank Account */}
+              <div className="pt-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Banknote className="h-3.5 w-3.5" /> Account
+                </p>
+                <DetailRow label="Bank Account" value={tx?.bankAccount || 'Emirates NBD - Main Ops'} />
+                <DetailRow label="Currency" value={tx?.currency || 'AED'} />
+                <DetailRow label="Payment Channel" value={tx?.paymentChannel || 'Bank Transfer'} />
+              </div>
+
+              {/* Counterparty */}
+              <div className="pt-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> Counterparty
+                </p>
+                <DetailRow label="Counterparty" value={tx?.counterparty} />
+                <DetailRow label="Counterparty IBAN" value={tx?.counterpartyIban} mono />
+              </div>
+
+              {/* Amount breakdown */}
+              <div className="pt-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" /> Financials
+                </p>
+                <DetailRow label="Amount Type" value={tx?.transactionType} />
+                <DetailRow
+                  label="Amount"
+                  value={`${tx?.currency || 'AED'} ${amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                  className={isCredit ? 'text-emerald-600' : 'text-rose-600'}
+                />
+                <DetailRow
+                  label="Running Balance After Txn"
+                  value={`${tx?.currency || 'AED'} ${tx?.balance?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                />
+              </div>
+
+              {/* Reconciliation */}
+              <div className="pt-4 pb-6">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" /> Reconciliation
+                </p>
+                <DetailRow label="Match Status" value={tx?.matchStatus} />
+                <DetailRow
+                  label="Narration Confidence"
+                  value={tx?.matchConfidence != null ? `${tx.matchConfidence}%` : null}
+                  className={tx?.matchConfidence >= 90 ? 'text-emerald-600' : tx?.matchConfidence >= 60 ? 'text-amber-600' : 'text-rose-600'}
+                />
+                {tx?.matchedEntityType && (
+                  <DetailRow label="Matched Entity" value={tx.matchedEntityType} />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t shrink-0">
+          <Button variant="outline" className="w-full" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BankPage() {
   const [page, setPage] = useState(1)
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(null)
   const { data, isLoading, error } = useBankTransactions({ page, limit: 15 })
   const uploadMutation = useUploadBankStatement()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -29,21 +197,25 @@ export default function BankPage() {
 
   const handleExport = () => {
     const rows = (data?.data ?? []).map((tx: any) => ({
-      'Date': tx.date ? format(new Date(tx.date), 'yyyy-MM-dd') : '—',
-      'Description': tx.description,
-      'Reference': tx.reference ?? '—',
-      'Debit (AED)': tx.debit > 0 ? tx.debit : '',
-      'Credit (AED)': tx.credit > 0 ? tx.credit : '',
-      'Balance (AED)': tx.balance,
-      'Type': tx.transactionType,
-      'Match Status': tx.matchStatus,
-      'Match Confidence (%)': tx.matchConfidence ?? '',
+      date: tx.date ? format(new Date(tx.date), 'yyyy-MM-dd') : '',
+      description: tx.description,
+      reference: tx.reference ?? '',
+      debit: tx.debit > 0 ? tx.debit : '',
+      credit: tx.credit > 0 ? tx.credit : '',
+      balance: tx.balance,
+      transactionType: tx.transactionType,
+      matchStatus: tx.matchStatus,
+      matchConfidence: tx.matchConfidence ?? '',
     }))
     exportToCSV(rows, 'bank_transactions')
   }
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
+      {selectedTxId && (
+        <TransactionDrawer id={selectedTxId} onClose={() => setSelectedTxId(null)} />
+      )}
+
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Bank Statements</h2>
@@ -54,19 +226,17 @@ export default function BankPage() {
             <Download className="h-4 w-4" /> Export CSV
           </Button>
           <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-          <Button onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} className="shadow-md hover:shadow-lg transition-all">
-            {uploadMutation.isPending ? (
-              <span className="animate-pulse">Uploading...</span>
-            ) : (
-              <><UploadCloud className="mr-2 h-4 w-4" /> Upload CSV</>
-            )}
+          <Button onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} className="shadow-md gap-2">
+            {uploadMutation.isPending
+              ? <span className="animate-pulse">Uploading…</span>
+              : <><UploadCloud className="h-4 w-4" /> Upload Bank CSV</>}
           </Button>
         </div>
       </div>
 
       {uploadMutation.isSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center space-x-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
           <span>Successfully uploaded and parsed <strong>{uploadMutation.data?.count}</strong> transactions!</span>
         </div>
       )}
@@ -74,13 +244,11 @@ export default function BankPage() {
       <Card className="shadow-sm border-0 border-t-4 border-t-blue-500">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>All ingested transactions from statements.</CardDescription>
+          <CardDescription>Click any row to view full transaction details.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
+            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : error ? (
             <div className="p-4 text-red-500">Failed to load bank transactions</div>
           ) : (
@@ -103,20 +271,24 @@ export default function BankPage() {
                       <TableRow>
                         <TableCell colSpan={7} className="text-center h-48 text-muted-foreground">
                           <FileText className="h-10 w-10 text-slate-300 mb-2 mx-auto" />
-                          No transactions found. Upload a statement to get started.
+                          No transactions found. Upload a bank statement CSV to get started.
                         </TableCell>
                       </TableRow>
                     ) : (
                       data?.data.map((tx: any) => (
-                        <TableRow key={tx._id} className="cursor-pointer hover:bg-slate-50 transition-colors text-sm">
+                        <TableRow
+                          key={tx._id}
+                          className="cursor-pointer hover:bg-blue-50 transition-colors text-sm"
+                          onClick={() => setSelectedTxId(tx._id)}
+                        >
                           <TableCell className="whitespace-nowrap">{format(new Date(tx.date), 'MMM dd, yyyy')}</TableCell>
                           <TableCell className="max-w-[200px] truncate" title={tx.description}>{tx.description}</TableCell>
-                          <TableCell className="text-muted-foreground">{tx.reference || '-'}</TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs">{tx.reference || '—'}</TableCell>
                           <TableCell className="text-rose-600 font-medium">
-                            {tx.debit > 0 ? `AED ${tx.debit.toLocaleString()}` : '-'}
+                            {tx.debit > 0 ? `AED ${tx.debit.toLocaleString()}` : '—'}
                           </TableCell>
                           <TableCell className="text-emerald-600 font-medium">
-                            {tx.credit > 0 ? `AED ${tx.credit.toLocaleString()}` : '-'}
+                            {tx.credit > 0 ? `AED ${tx.credit.toLocaleString()}` : '—'}
                           </TableCell>
                           <TableCell className="font-semibold">AED {tx.balance.toLocaleString()}</TableCell>
                           <TableCell>

@@ -26,6 +26,8 @@ export const ClientCreateSchema = z.object({
     .min(2, 'Name must be at least 2 characters')
     .max(200, 'Name cannot exceed 200 characters')
     .trim(),
+  website: z.string().trim().max(500).default(''),
+  industry: z.string().trim().max(200).default(''),
   companyDetails: CompanyDetailsSchema.optional().default({
     address: '',
     phone: '',

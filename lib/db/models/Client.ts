@@ -13,6 +13,8 @@ export interface ICompanyDetails {
 export interface IClient extends Document {
   _id: mongoose.Types.ObjectId
   name: string
+  website: string
+  industry: string
   companyDetails: ICompanyDetails
   contractType: ContractType
   rateCard: number
@@ -48,6 +50,8 @@ const ClientSchema = new Schema<IClient>(
       minlength: [2, 'Name must be at least 2 characters'],
       maxlength: [200, 'Name cannot exceed 200 characters'],
     },
+    website: { type: String, trim: true, default: '' },
+    industry: { type: String, trim: true, default: '' },
     companyDetails: {
       type: CompanyDetailsSchema,
       default: () => ({ address: '', phone: '', email: '', taxNumber: '' }),

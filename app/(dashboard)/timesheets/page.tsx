@@ -8,8 +8,25 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
-import { Clock, Plus, Download } from 'lucide-react'
+import Link from 'next/link'
+import { Clock, Plus, Download, Upload } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
+import ImportModal from '@/components/ImportModal'
+
+const IMPORT_COLUMNS = [
+  { key: 'email', label: 'Employee Email', required: true },
+  { key: 'month', label: 'Month (YYYY-MM)', required: true },
+  { key: 'client', label: 'Client Name' },
+  { key: 'workingDays', label: 'Working Days' },
+  { key: 'hours', label: 'Hours' },
+  { key: 'overtimeHours', label: 'Overtime Hours' },
+  { key: 'status', label: 'Status' },
+  { key: 'notes', label: 'Notes' },
+]
+
+const TEMPLATE_ROWS = [
+  { email: 'emp1@bimstaff.ae', month: '2024-11', client: 'Acme Corp', workingDays: '22', hours: '176', overtimeHours: '0', status: 'Approved', notes: '' },
+]
 
 function useTimesheets(filters: { page: number }) {
   return useQuery({
@@ -26,31 +43,44 @@ function useTimesheets(filters: { page: number }) {
 
 export default function TimesheetsPage() {
   const [page, setPage] = useState(1)
-  const { data, isLoading, error } = useTimesheets({ page })
+  const [importOpen, setImportOpen] = useState(false)
+  const { data, isLoading, error, refetch } = useTimesheets({ page })
 
   const handleExport = () => {
     const rows = (data?.data ?? []).map((ts: any) => ({
-      'Employee': ts.employeeId?.name ?? '—',
-      'Client': ts.clientId?.name ?? '—',
-      'Project': ts.projectId?.name ?? '—',
-      'Month': ts.month,
-      'Working Days': ts.workingDays,
-      'Hours': ts.hours,
-      'Overtime Hours': ts.overtimeHours ?? 0,
-      'Status': ts.status,
-      'Notes': ts.notes ?? '—',
+      email: ts.employeeId?.email ?? '',
+      month: ts.month,
+      client: ts.clientId?.name ?? '',
+      workingDays: ts.workingDays ?? '',
+      hours: ts.hours ?? '',
+      overtimeHours: ts.overtimeHours ?? '',
+      status: ts.status,
+      notes: ts.notes ?? '',
     }))
     exportToCSV(rows, 'timesheets')
   }
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        entityLabel="Timesheets"
+        apiEndpoint="/timesheets/import"
+        columns={IMPORT_COLUMNS}
+        templateRows={TEMPLATE_ROWS}
+        onSuccess={() => refetch()}
+      />
+
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Timesheets</h2>
           <p className="text-muted-foreground mt-1">The source of truth for billing and payroll.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" /> Import CSV
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
@@ -86,13 +116,17 @@ export default function TimesheetsPage() {
                       <TableRow>
                         <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">
                           <Clock className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                          No timesheets found. Run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code> to add sample data.
+                          No timesheets found. Import a CSV or run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code>.
                         </TableCell>
                       </TableRow>
                     ) : (
                       data?.data?.map((ts: any) => (
-                        <TableRow key={ts._id} className="hover:bg-slate-50 transition-colors cursor-pointer">
-                          <TableCell className="font-semibold">{ts.employeeId?.name ?? '—'}</TableCell>
+                        <TableRow key={ts._id} className="hover:bg-slate-50 transition-colors">
+                          <TableCell>
+                            <Link href={`/timesheets/${ts._id}`} className="font-semibold text-blue-600 hover:underline">
+                              {ts.employeeId?.name ?? '—'}
+                            </Link>
+                          </TableCell>
                           <TableCell>{ts.projectId?.name ?? '—'}</TableCell>
                           <TableCell className="text-muted-foreground">{ts.month}</TableCell>
                           <TableCell className="font-medium">{ts.hours}h</TableCell>

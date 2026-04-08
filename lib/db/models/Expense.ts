@@ -1,22 +1,29 @@
 import mongoose, { Document, Model, Schema } from 'mongoose'
 
 export type ExpenseCategory =
+  | 'Salary'
   | 'Travel'
   | 'Office'
   | 'Software'
   | 'Equipment'
   | 'Marketing'
   | 'Utilities'
+  | 'Visa'
+  | 'Admin'
+  | 'IT'
   | 'Other'
 
 export type ExpensePaymentMode = 'Bank' | 'Cash' | 'Card' | 'Cheque'
 export type ExpenseStatus = 'Pending' | 'Approved' | 'Rejected'
+export type ExpenseCurrency = 'AED' | 'USD' | 'INR' | 'GBP' | 'EUR'
 
 export interface IExpense extends Document {
   _id: mongoose.Types.ObjectId
   category: ExpenseCategory
+  subCategory: string
   description: string
   amount: number
+  currency: ExpenseCurrency
   date: Date
   paidTo: string
   paymentMode: ExpensePaymentMode
@@ -24,6 +31,10 @@ export interface IExpense extends Document {
   approvedBy: mongoose.Types.ObjectId | null
   bankReference: string
   projectId: mongoose.Types.ObjectId | null
+  employeeId: mongoose.Types.ObjectId | null
+  clientId: mongoose.Types.ObjectId | null
+  isBillable: boolean
+  notes: string
   createdAt: Date
   updatedAt: Date
 }
@@ -33,11 +44,12 @@ const ExpenseSchema = new Schema<IExpense>(
     category: {
       type: String,
       enum: {
-        values: ['Travel', 'Office', 'Software', 'Equipment', 'Marketing', 'Utilities', 'Other'],
+        values: ['Salary', 'Travel', 'Office', 'Software', 'Equipment', 'Marketing', 'Utilities', 'Visa', 'Admin', 'IT', 'Other'],
         message: '{VALUE} is not a valid expense category',
       },
       required: [true, 'Category is required'],
     },
+    subCategory: { type: String, trim: true, default: '' },
     description: {
       type: String,
       required: [true, 'Description is required'],
@@ -52,6 +64,11 @@ const ExpenseSchema = new Schema<IExpense>(
     date: {
       type: Date,
       required: [true, 'Date is required'],
+    },
+    currency: {
+      type: String,
+      enum: { values: ['AED', 'USD', 'INR', 'GBP', 'EUR'], message: '{VALUE} is not a valid currency' },
+      default: 'AED',
     },
     paidTo: {
       type: String,
@@ -90,6 +107,18 @@ const ExpenseSchema = new Schema<IExpense>(
       ref: 'Project',
       default: null,
     },
+    employeeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
+    clientId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Client',
+      default: null,
+    },
+    isBillable: { type: Boolean, default: false },
+    notes: { type: String, trim: true, maxlength: [2000, 'Notes cannot exceed 2000 characters'], default: '' },
   },
   { timestamps: true }
 )

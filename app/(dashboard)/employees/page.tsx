@@ -10,8 +10,28 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
-import { Users, Search, Plus, Download } from 'lucide-react'
+import { Users, Search, Plus, Download, Upload } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
+import ImportModal from '@/components/ImportModal'
+
+const IMPORT_COLUMNS = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'email', label: 'Email', required: true },
+  { key: 'position', label: 'Position', required: true },
+  { key: 'baseSalary', label: 'Base Salary', required: true },
+  { key: 'joiningDate', label: 'Joining Date' },
+  { key: 'status', label: 'Status' },
+  { key: 'nationality', label: 'Nationality' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'employeeCode', label: 'Employee Code' },
+  { key: 'bankName', label: 'Bank Name' },
+  { key: 'accountNumber', label: 'Account Number' },
+  { key: 'iban', label: 'IBAN' },
+]
+
+const TEMPLATE_ROWS = [
+  { name: 'John Smith', email: 'john@bimstaff.ae', position: 'Senior Engineer', baseSalary: '15000', joiningDate: '2023-01-15', status: 'Active', nationality: 'Expat', phone: '+971501234567', employeeCode: '', bankName: 'Emirates NBD', accountNumber: '0001234567', iban: 'AE070331234567890123456' },
+]
 
 function useEmployees(filters: { page: number; search?: string }) {
   return useQuery({
@@ -30,32 +50,48 @@ function useEmployees(filters: { page: number; search?: string }) {
 export default function EmployeesPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const { data, isLoading, error } = useEmployees({ page, search })
+  const [importOpen, setImportOpen] = useState(false)
+  const { data, isLoading, error, refetch } = useEmployees({ page, search })
 
   const handleExport = () => {
     const rows = (data?.data ?? []).map((emp: any) => ({
-      'Employee Code': emp.employeeCode,
-      'Name': emp.name,
-      'Email': emp.email,
-      'Position': emp.position ?? '—',
-      'Base Salary (AED)': emp.baseSalary,
-      'Status': emp.status,
-      'Nationality': emp.nationality ?? '—',
-      'Joining Date': emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString() : '—',
-      'Assigned Client': (emp.assignedClientId as any)?.name ?? '—',
-      'Assigned Project': (emp.assignedProjectId as any)?.name ?? '—',
+      name: emp.name,
+      email: emp.email,
+      position: emp.position ?? '',
+      baseSalary: emp.baseSalary,
+      joiningDate: emp.joiningDate ? new Date(emp.joiningDate).toISOString().split('T')[0] : '',
+      status: emp.status,
+      nationality: emp.nationality ?? '',
+      phone: emp.phone ?? '',
+      employeeCode: emp.employeeCode,
+      bankName: emp.bankDetails?.bankName ?? '',
+      accountNumber: emp.bankDetails?.accountNumber ?? '',
+      iban: emp.bankDetails?.iban ?? '',
     }))
     exportToCSV(rows, 'employees')
   }
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        entityLabel="Employees"
+        apiEndpoint="/employees/import"
+        columns={IMPORT_COLUMNS}
+        templateRows={TEMPLATE_ROWS}
+        onSuccess={() => refetch()}
+      />
+
       <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Employees</h2>
           <p className="text-muted-foreground mt-1">Manage your workforce and their assignments.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" /> Import CSV
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
