@@ -2,17 +2,14 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
 import {
-  Building2, Download, Upload, Plus, FileText, Users, Clock,
-  TrendingUp, AlertTriangle, CheckCircle2, ChevronRight,
-  BarChart3, Wallet, GitMerge, ArrowRight, Search, X,
-  Globe, Phone, Mail, Star, Activity, DollarSign, Zap,
-  FileCheck, UserCheck, Receipt, PieChart, Bell, Shield
+  Building2, Download, Upload, Plus,
+  TrendingUp, AlertTriangle,
+  Search, X,
+  Globe, Phone, Mail, DollarSign,
 } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
@@ -36,163 +33,6 @@ const TEMPLATE_ROWS = [
   { name: 'Acme Corp', website: 'https://acme.com', industry: 'FinTech', email: 'finance@acme.com', phone: '+971501234567', address: 'Dubai, UAE', taxNumber: 'TRN100200300400', contractType: 'LPO', rateCard: '250', billingType: 'Monthly', creditTerms: '30', isActive: 'true' },
 ]
 
-const FLOW_STEPS = [
-  { label: 'Client',      icon: Building2,  color: 'from-blue-600 to-blue-700',    desc: 'Master record' },
-  { label: 'LPO',         icon: FileCheck,  color: 'from-violet-600 to-violet-700', desc: 'Agreement & deal' },
-  { label: 'Project',     icon: FileText,   color: 'from-indigo-600 to-indigo-700', desc: 'Services scope' },
-  { label: 'Deployment',  icon: UserCheck,  color: 'from-cyan-600 to-cyan-700',     desc: 'Resource assign' },
-  { label: 'Timesheet',   icon: Clock,      color: 'from-teal-600 to-teal-700',     desc: 'Hours logged' },
-  { label: 'Invoice',     icon: Receipt,    color: 'from-amber-600 to-amber-700',   desc: 'Billing raised' },
-  { label: 'Payment',     icon: Wallet,     color: 'from-orange-600 to-orange-700', desc: 'Cash collected' },
-  { label: 'Profit',      icon: TrendingUp, color: 'from-emerald-600 to-emerald-700', desc: 'Net return' },
-]
-
-const SUB_MODULES = [
-  {
-    id: 'clients',
-    label: 'Client Master',
-    icon: Building2,
-    color: 'from-blue-600/20 to-blue-700/10',
-    border: 'border-blue-500/30',
-    iconColor: 'text-blue-400',
-    href: '#clients',
-    desc: 'Manage client profiles, contacts, credit terms and KYC documents.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'lpo',
-    label: 'LPO / Agreement',
-    icon: FileCheck,
-    color: 'from-violet-600/20 to-violet-700/10',
-    border: 'border-violet-500/30',
-    iconColor: 'text-violet-400',
-    href: '#lpo',
-    desc: 'Track all purchase orders, rate cards, validity, billing and overtime rules.',
-    stat: null,
-    badge: 'Expiring Soon',
-  },
-  {
-    id: 'projects',
-    label: 'Projects / Services',
-    icon: FileText,
-    color: 'from-indigo-600/20 to-indigo-700/10',
-    border: 'border-indigo-500/30',
-    iconColor: 'text-indigo-400',
-    href: '/projects',
-    desc: 'Open service scopes, milestones, deliverables and status tracking.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'deployment',
-    label: 'Resource Deployment',
-    icon: UserCheck,
-    color: 'from-cyan-600/20 to-cyan-700/10',
-    border: 'border-cyan-500/30',
-    iconColor: 'text-cyan-400',
-    href: '/employees',
-    desc: 'Deployed headcount per client, mobilization status and visa tracking.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'timesheets',
-    label: 'Timesheets',
-    icon: Clock,
-    color: 'from-teal-600/20 to-teal-700/10',
-    border: 'border-teal-500/30',
-    iconColor: 'text-teal-400',
-    href: '/timesheets',
-    desc: 'Approve client-specific timesheets, resolve gaps and flag missing submissions.',
-    stat: null,
-    badge: 'Pending',
-  },
-  {
-    id: 'invoices',
-    label: 'Invoice Management',
-    icon: Receipt,
-    color: 'from-amber-600/20 to-amber-700/10',
-    border: 'border-amber-500/30',
-    iconColor: 'text-amber-400',
-    href: '/invoices',
-    desc: 'Generate, send and track all invoices raised against client LPOs.',
-    stat: null,
-    badge: 'Overdue',
-  },
-  {
-    id: 'payments',
-    label: 'Payment Tracking',
-    icon: Wallet,
-    color: 'from-orange-600/20 to-orange-700/10',
-    border: 'border-orange-500/30',
-    iconColor: 'text-orange-400',
-    href: '/bank',
-    desc: 'Match incoming client payments to invoices and track outstanding balances.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'reconciliation',
-    label: 'Invoice Reconciliation',
-    icon: GitMerge,
-    color: 'from-rose-600/20 to-rose-700/10',
-    border: 'border-rose-500/30',
-    iconColor: 'text-rose-400',
-    href: '/reconciliation',
-    desc: 'Bank-to-invoice matching, partial payment handling and aging analysis.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'profitability',
-    label: 'Client Profitability',
-    icon: PieChart,
-    color: 'from-emerald-600/20 to-emerald-700/10',
-    border: 'border-emerald-500/30',
-    iconColor: 'text-emerald-400',
-    href: '/reports',
-    desc: 'Revenue vs cost breakdowns, margin analysis and profit trend per client.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'reports',
-    label: 'Reports & Aging',
-    icon: BarChart3,
-    color: 'from-sky-600/20 to-sky-700/10',
-    border: 'border-sky-500/30',
-    iconColor: 'text-sky-400',
-    href: '/reports',
-    desc: 'AR aging, DSO tracking, revenue pipeline and executive summary exports.',
-    stat: null,
-    badge: null,
-  },
-  {
-    id: 'alerts',
-    label: 'Smart Alerts',
-    icon: Bell,
-    color: 'from-pink-600/20 to-pink-700/10',
-    border: 'border-pink-500/30',
-    iconColor: 'text-pink-400',
-    href: '/alerts',
-    desc: 'Revenue leakage controls: expiring LPOs, missing invoices, overdue payments.',
-    stat: null,
-    badge: '3 Active',
-  },
-  {
-    id: 'audit',
-    label: 'Payment Audit',
-    icon: Shield,
-    color: 'from-slate-500/20 to-slate-600/10',
-    border: 'border-slate-500/30',
-    iconColor: 'text-slate-400',
-    href: '/payment-audit',
-    desc: 'Rule-based audit engine flagging salary mismatches, late payments, and bank gaps.',
-    stat: null,
-    badge: null,
-  },
-]
 
 const CLIENT_AVATAR_COLORS = [
   'from-blue-600 to-indigo-700',
@@ -258,7 +98,6 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [importOpen, setImportOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'hub' | 'list'>('hub')
   const { data, isLoading, refetch } = useClients({ page, search, status })
   const { data: stats } = useClientStats()
 
@@ -327,116 +166,7 @@ export default function ClientsPage() {
         <KpiCard icon={TrendingUp}  label="Net Profit %"     value={stats?.profitPct ? `${stats.profitPct.toFixed(1)}%` : '—'} sub="Current month"  color="from-violet-700/60 to-violet-900/40" />
       </div>
 
-      {/* Tab switcher */}
-      <div className="flex bg-slate-800/60 border border-slate-700/60 rounded-xl p-1 gap-1 w-fit mb-6">
-        <button
-          onClick={() => setActiveTab('hub')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'hub' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-        >
-          Module Hub
-        </button>
-        <button
-          onClick={() => setActiveTab('list')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'list' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-        >
-          Client List
-        </button>
-      </div>
-
-      {activeTab === 'hub' ? (
-        <>
-          {/* Business Flow Pipeline */}
-          <div className="mb-8">
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-3">Business Flow</p>
-            <div className="flex items-stretch gap-0 overflow-x-auto pb-2">
-              {FLOW_STEPS.map((step, i) => {
-                const Icon = step.icon
-                return (
-                  <React.Fragment key={step.label}>
-                    <div className={`flex flex-col items-center bg-gradient-to-b ${step.color} border border-white/10 rounded-xl px-4 py-3 min-w-[90px] shadow-lg`}>
-                      <div className="w-8 h-8 bg-white/15 rounded-lg flex items-center justify-center mb-2">
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <p className="text-white text-xs font-bold whitespace-nowrap">{step.label}</p>
-                      <p className="text-white/50 text-[10px] whitespace-nowrap mt-0.5">{step.desc}</p>
-                    </div>
-                    {i < FLOW_STEPS.length - 1 && (
-                      <div className="flex items-center shrink-0 mx-1">
-                        <ArrowRight className="w-4 h-4 text-slate-600" />
-                      </div>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Sub-module Cards */}
-          <div>
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-3">Modules</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {SUB_MODULES.map(mod => {
-                const Icon = mod.icon
-                const isInternal = mod.href.startsWith('#')
-                const inner = (
-                  <div className={`relative bg-gradient-to-br ${mod.color} border ${mod.border} rounded-2xl p-5 h-full hover:border-white/20 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer`}>
-                    {mod.badge && (
-                      <span className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-400 text-[10px] font-bold">
-                        {mod.badge}
-                      </span>
-                    )}
-                    <div className={`w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-3`}>
-                      <Icon className={`w-5 h-5 ${mod.iconColor}`} />
-                    </div>
-                    <h3 className="text-white font-bold text-sm group-hover:text-white transition-colors">{mod.label}</h3>
-                    <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">{mod.desc}</p>
-                    <div className="flex items-center gap-1 mt-3 text-slate-500 group-hover:text-slate-300 transition-colors">
-                      <span className="text-xs font-medium">Open</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                )
-                return isInternal ? (
-                  <div key={mod.id} onClick={() => { if (mod.id === 'clients') setActiveTab('list') }}>
-                    {inner}
-                  </div>
-                ) : (
-                  <Link key={mod.id} href={mod.href} className="block h-full">
-                    {inner}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mt-8">
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-3">Quick Actions</p>
-            <div className="flex flex-wrap gap-3">
-              {[
-                { label: 'Add Client',       icon: Building2,  color: 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/40',    action: () => {} },
-                { label: 'Create LPO',       icon: FileCheck,  color: 'bg-violet-600 hover:bg-violet-700 shadow-violet-900/40', action: () => {} },
-                { label: 'Generate Invoice', icon: Receipt,    color: 'bg-amber-600 hover:bg-amber-700 shadow-amber-900/40',  action: () => {} },
-                { label: 'View Reports',     icon: BarChart3,  color: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/40', action: () => {} },
-                { label: 'Run Audit',        icon: Shield,     color: 'bg-slate-600 hover:bg-slate-500 shadow-slate-900/40', action: () => {} },
-              ].map(qa => {
-                const Icon = qa.icon
-                return (
-                  <button
-                    key={qa.label}
-                    onClick={qa.action}
-                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-lg ${qa.color} transition-all`}
-                  >
-                    <Icon className="w-4 h-4" /> {qa.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      ) : (
-        /* Client List Tab */
-        <div>
+      <div>
           {/* Search + filter row */}
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
@@ -589,7 +319,6 @@ export default function ClientsPage() {
             </div>
           )}
         </div>
-      )}
     </div>
   )
 }
