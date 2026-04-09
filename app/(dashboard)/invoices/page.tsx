@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
 import {
-  FileText, Search, Plus, Download, Upload, Eye, X,
+  FileText, Plus, Download, Upload, Eye, X,
   Printer, CheckCircle2, Clock, AlertCircle, Ban, Send,
   Building2, MapPin, Phone, Mail,
 } from 'lucide-react'
 import Link from 'next/link'
+import FilterBar from '@/components/FilterBar'
 import { format } from 'date-fns'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
@@ -333,8 +333,12 @@ const statusVariant = (s: string) => {
 export default function InvoicesPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [previewId, setPreviewId] = useState<string | null>(null)
+  const hasFilters = !!(search || status || dateFrom || dateTo)
   const { data, isLoading, error, refetch } = useInvoices({ page, search })
 
   const handleExport = () => {
@@ -387,17 +391,33 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      <FilterBar
+        search={search}
+        onSearchChange={v => { setSearch(v); setPage(1) }}
+        searchPlaceholder="Search invoices…"
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={v => { setDateFrom(v); setPage(1) }}
+        onDateToChange={v => { setDateTo(v); setPage(1) }}
+        statusOptions={[
+          { label: 'Draft', value: 'Draft' },
+          { label: 'Sent', value: 'Sent' },
+          { label: 'Paid', value: 'Paid' },
+          { label: 'Overdue', value: 'Overdue' },
+          { label: 'PartiallyPaid', value: 'PartiallyPaid' },
+          { label: 'Cancelled', value: 'Cancelled' },
+        ]}
+        status={status}
+        onStatusChange={v => { setStatus(v); setPage(1) }}
+        hasActiveFilters={hasFilters}
+        onClear={() => { setSearch(''); setStatus(''); setDateFrom(''); setDateTo(''); setPage(1) }}
+      />
+
       <Card className="shadow-sm border-0 border-t-4 border-t-emerald-500">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Invoice Register</CardTitle>
-              <CardDescription>All invoices generated from approved timesheets. Click the eye icon to preview.</CardDescription>
-            </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search invoices..." className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
-            </div>
+          <div>
+            <CardTitle>Invoice Register</CardTitle>
+            <CardDescription>All invoices generated from approved timesheets. Click the eye icon to preview.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

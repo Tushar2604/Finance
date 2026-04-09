@@ -16,6 +16,7 @@ import {
   GitMerge,
   BarChart3,
   Brain,
+  ShieldCheck,
   Bell,
   Settings,
   TrendingUp,
@@ -56,6 +57,7 @@ const navItems: NavItem[] = [
   { label: 'Reconciliation', href: '/reconciliation', icon: GitMerge },
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'AI Insights', href: '/ai-insights', icon: Brain },
+  { label: 'Payment Audit', href: '/payment-audit', icon: ShieldCheck },
   { label: 'Alerts', href: '/alerts', icon: Bell, badge: 3 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]

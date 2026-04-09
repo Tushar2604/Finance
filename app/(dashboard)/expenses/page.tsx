@@ -11,6 +11,7 @@ import { Download, Upload } from 'lucide-react'
 import { format } from 'date-fns'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
+import FilterBar from '@/components/FilterBar'
 import Link from 'next/link'
 
 const IMPORT_COLUMNS = [
@@ -30,7 +31,11 @@ const TEMPLATE_ROWS = [
 
 export default function ExpensesPage() {
   const [page, setPage] = useState(1)
+  const [status, setStatus] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+  const hasFilters = !!(status || dateFrom || dateTo)
   const { data, isLoading, error, refetch } = useExpenses({ page, limit: 10 })
 
   const handleExport = () => {
@@ -73,6 +78,22 @@ export default function ExpensesPage() {
           </Button>
         </div>
       </div>
+
+      <FilterBar
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={v => { setDateFrom(v); setPage(1) }}
+        onDateToChange={v => { setDateTo(v); setPage(1) }}
+        statusOptions={[
+          { label: 'Pending', value: 'Pending' },
+          { label: 'Approved', value: 'Approved' },
+          { label: 'Rejected', value: 'Rejected' },
+        ]}
+        status={status}
+        onStatusChange={v => { setStatus(v); setPage(1) }}
+        hasActiveFilters={hasFilters}
+        onClear={() => { setStatus(''); setDateFrom(''); setDateTo(''); setPage(1) }}
+      />
 
       <Card className="shadow-sm border-0 border-t-4 border-t-amber-500">
         <CardHeader>
