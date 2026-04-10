@@ -15,11 +15,36 @@ import {
   Building2, FileText, Users, FolderKanban, DollarSign,
   AlertCircle, Receipt, CreditCard, Plus, X, Clock,
   CheckCircle2, Ban, Edit2, FileCheck, TrendingUp, TrendingDown,
-  Zap, BarChart3, Wallet, ShieldAlert, CalendarClock, UserX,
+  Zap, BarChart3, Wallet, ShieldAlert, CalendarClock, UserX, Trash2, Pencil
 } from 'lucide-react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 
 // ─── Data hooks ───────────────────────────────────────────────────────────────
+
+import ClientFormModal from '@/components/clients/ClientFormModal'
+import { useMutation } from '@tanstack/react-query'
+
+function DeleteConfirm({ name, onConfirm, onCancel, loading }: { name: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white border text-center rounded-2xl p-6 max-w-sm w-full shadow-2xl mx-4">
+        <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+          <Trash2 className="w-6 h-6 text-rose-600" />
+        </div>
+        <h3 className="text-slate-900 font-bold text-lg">Delete Client</h3>
+        <p className="text-slate-500 text-sm mt-2">
+          Are you sure you want to delete <span className="font-semibold text-slate-800">{name}</span>? This cannot be undone.
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function useClient(id: string) {
   return useQuery({
@@ -295,6 +320,16 @@ export default function ClientProfilePage() {
   const router = useRouter()
   const qc = useQueryClient()
   const [lpoOpen, setLpoOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteConf, setDeleteConf] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.delete(`/clients/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      router.push('/clients')
+    }
+  })
 
   const { data: client, isLoading: loadingClient } = useClient(id)
   const { data: summary, isLoading: loadingSummary } = useClientSummary(id)
@@ -333,6 +368,21 @@ export default function ClientProfilePage() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
+      {editOpen && (
+        <ClientFormModal
+          client={client}
+          onClose={() => setEditOpen(false)}
+          onSuccess={() => { setEditOpen(false); qc.invalidateQueries({ queryKey: ['client', id] }); qc.invalidateQueries({ queryKey: ['clients'] }) }}
+        />
+      )}
+      {deleteConf && (
+        <DeleteConfirm
+          name={client.name}
+          onConfirm={() => deleteMutation.mutate()}
+          onCancel={() => setDeleteConf(false)}
+          loading={deleteMutation.isPending}
+        />
+      )}
       {lpoOpen && (
         <LPOFormModal
           clientId={id}
@@ -341,9 +391,19 @@ export default function ClientProfilePage() {
         />
       )}
 
-      <Button variant="ghost" onClick={() => router.back()} className="gap-2 text-muted-foreground hover:text-foreground -ml-2">
-        <ArrowLeft className="h-4 w-4" /> Back to Clients
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2 text-muted-foreground hover:text-foreground -ml-2">
+          <ArrowLeft className="h-4 w-4" /> Back to Clients
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
+            <Pencil className="h-3.5 w-3.5" /> Edit Client
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setDeleteConf(true)} className="gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        </div>
+      </div>
 
       {/* Header */}
       <Card className="shadow-sm border overflow-hidden">

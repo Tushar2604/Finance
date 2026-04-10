@@ -20,6 +20,7 @@ export interface IScopePricing {
 export interface IClient extends Document {
   _id: mongoose.Types.ObjectId
   name: string
+  clientCode: string
   website: string
   industry: string
   companyDetails: ICompanyDetails
@@ -64,6 +65,13 @@ const ClientSchema = new Schema<IClient>(
       trim: true,
       minlength: [2, 'Name must be at least 2 characters'],
       maxlength: [200, 'Name cannot exceed 200 characters'],
+    },
+    clientCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
     },
     website: { type: String, trim: true, default: '' },
     industry: { type: String, trim: true, default: '' },

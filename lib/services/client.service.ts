@@ -5,7 +5,7 @@ import Employee from '@/lib/db/models/Employee'
 import Project from '@/lib/db/models/Project'
 import AuditLog from '@/lib/db/models/AuditLog'
 import mongoose from 'mongoose'
-import { paginate, buildPaginationMeta } from '@/lib/utils'
+import { paginate, buildPaginationMeta, generateClientCode } from '@/lib/utils'
 
 export interface ClientFilters {
   search?: string
@@ -87,6 +87,17 @@ export async function createClient(
   userId: string
 ): Promise<IClient> {
   await dbConnect()
+
+  // Auto-generate clientCode if not provided
+  if (!data.clientCode && data.name) {
+    let base = generateClientCode(data.name)
+    let code = base
+    let suffix = 2
+    while (await Client.exists({ clientCode: code })) {
+      code = `${base}-${suffix++}`
+    }
+    data = { ...data, clientCode: code }
+  }
 
   const client = await Client.create(data)
 

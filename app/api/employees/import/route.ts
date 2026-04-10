@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/middleware'
-import { apiSuccess, apiError } from '@/lib/utils'
+import { apiSuccess, apiError, generateEmployeeCode } from '@/lib/utils'
 import dbConnect from '@/lib/db/connection'
 import Employee from '@/lib/db/models/Employee'
-import { generateEmployeeCode } from '@/lib/utils'
+import Client from '@/lib/db/models/Client'
 import type { JWTPayload } from '@/lib/auth/jwt'
 
 export const POST = withAuth(
@@ -27,6 +27,25 @@ export const POST = withAuth(
 
         const joiningDate = row['joiningDate'] ? new Date(row['joiningDate']) : new Date()
 
+        // Resolve clientCode → clientId
+        let assignedClientId: string | null = null
+        let clientsWorkedWith: object[] = []
+        const clientCode = row['clientCode']?.trim().toUpperCase()
+        const clientName = row['clientName']?.trim()
+        if (clientCode) {
+          const client = await Client.findOne({ clientCode }).lean()
+          if (client) {
+            assignedClientId = (client as any)._id.toString()
+            clientsWorkedWith = [{ clientId: (client as any)._id, clientCode: (client as any).clientCode, clientName: (client as any).name }]
+          }
+        } else if (clientName) {
+          const client = await Client.findOne({ name: { $regex: clientName, $options: 'i' } }).lean()
+          if (client) {
+            assignedClientId = (client as any)._id.toString()
+            clientsWorkedWith = [{ clientId: (client as any)._id, clientCode: (client as any).clientCode, clientName: (client as any).name }]
+          }
+        }
+
         const doc: Record<string, unknown> = {
           name,
           email,
@@ -36,27 +55,31 @@ export const POST = withAuth(
           status: (['Active', 'Inactive', 'On-Leave'].includes(row['status'] ?? '') ? row['status'] : 'Active'),
           nationality: row['nationality']?.trim() ?? '',
           phone: row['phone']?.trim() ?? '',
+          currentMonthlySalary: parseFloat(row['currentMonthlySalary'] ?? '0') || 0,
+          monthlySalaryContracted: parseFloat(row['monthlySalaryContracted'] ?? '0') || 0,
+          basicSalaryContracted: parseFloat(row['basicSalaryContracted'] ?? '0') || 0,
+          noticePeriod: parseInt(row['noticePeriod'] ?? '30') || 30,
+          probationPeriod: parseInt(row['probationPeriod'] ?? '90') || 90,
           bankDetails: {
             bankName: row['bankName']?.trim() ?? '',
             accountNumber: row['accountNumber']?.trim() ?? '',
             iban: row['iban']?.trim().toUpperCase() ?? '',
           },
+          ...(assignedClientId ? { assignedClientId, clientsWorkedWith } : {}),
         }
 
-        // Only set employeeCode on insert
         const existing = await Employee.findOne({ email })
         if (existing) {
           await Employee.findByIdAndUpdate(existing._id, doc)
           updated++
         } else {
-          const count = await Employee.countDocuments()
-          doc.employeeCode = row['employeeCode']?.trim().toUpperCase() || generateEmployeeCode(count + 1)
-          // Ensure unique code
-          let code = doc.employeeCode as string
-          let attempt = 0
+          // Generate name-based employee code
+          const providedCode = row['employeeCode']?.trim().toUpperCase()
+          let base = providedCode || generateEmployeeCode(0, name)
+          let code = base
+          let suffix = 2
           while (await Employee.exists({ employeeCode: code })) {
-            code = generateEmployeeCode(count + attempt + 2)
-            attempt++
+            code = `${base}-${suffix++}`
           }
           doc.employeeCode = code
           await Employee.create(doc)

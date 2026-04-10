@@ -175,6 +175,17 @@ export async function updateTimesheet(id: string, data: TimesheetMutationInput):
   return updated as ITimesheet
 }
 
+export async function deleteTimesheet(id: string): Promise<void> {
+  await dbConnect()
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw Object.assign(new Error('Invalid timesheet ID'), { statusCode: 400 })
+  }
+  const deleted = await Timesheet.findByIdAndDelete(id)
+  if (!deleted) {
+    throw Object.assign(new Error('Timesheet not found'), { statusCode: 404 })
+  }
+}
+
 export async function approveTimesheet(id: string, approverId: string): Promise<ITimesheet> {
   await dbConnect()
 

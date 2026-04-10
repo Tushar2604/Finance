@@ -10,6 +10,7 @@ import apiClient from '@/lib/api'
 interface EmployeeFormModalProps {
   onClose: () => void
   onSuccess: () => void
+  employee?: any // pre-fill for edit mode
 }
 
 const SECTIONS = [
@@ -66,9 +67,39 @@ function Select({ value, onChange, options }: {
   )
 }
 
-export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormModalProps) {
+export default function EmployeeFormModal({ onClose, onSuccess, employee }: EmployeeFormModalProps) {
+  const isEdit = !!employee
   const [activeSection, setActiveSection] = useState('general')
-  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [form, setForm] = useState<FormState>(() => employee ? {
+    name: employee.name ?? '',
+    email: employee.email ?? '',
+    phone: employee.phone ?? '',
+    nationality: employee.nationality ?? '',
+    status: employee.status ?? 'Active',
+    joiningDate: employee.joiningDate ? employee.joiningDate.slice(0, 10) : '',
+    endDate: employee.endDate ? employee.endDate.slice(0, 10) : '',
+    position: employee.position ?? '',
+    department: employee.department ?? '',
+    baseSalary: String(employee.baseSalary ?? ''),
+    paymentMode: employee.paymentMode ?? 'Bank',
+    enableWeeklyTimesheet: employee.enableWeeklyTimesheet ?? 'No',
+    description: employee.description ?? '',
+    currentMonthlySalary: String(employee.currentMonthlySalary ?? ''),
+    monthlySalaryContracted: String(employee.monthlySalaryContracted ?? ''),
+    basicSalaryContracted: String(employee.basicSalaryContracted ?? ''),
+    noticePeriod: String(employee.noticePeriod ?? '30'),
+    probationPeriod: String(employee.probationPeriod ?? '90'),
+    countryOfService: employee.countryOfService ?? '',
+    cityOfService: employee.cityOfService ?? '',
+    staffingType: employee.staffingType ?? 'Permanent',
+    mobilizationAddress: employee.mobilizationAddress ?? '',
+    mobilizationMap: employee.mobilizationMap ?? '',
+    bankName: employee.bankDetails?.bankName ?? '',
+    accountNumber: employee.bankDetails?.accountNumber ?? '',
+    iban: employee.bankDetails?.iban ?? '',
+    signedPOFile: employee.signedPOFile ?? '',
+    internalWorkAgreementFile: employee.internalWorkAgreementFile ?? '',
+  } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -81,7 +112,7 @@ export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormMo
     }
     setSaving(true); setError('')
     try {
-      await apiClient.post('/employees', {
+      const payload = {
         name: form.name,
         email: form.email,
         phone: form.phone,
@@ -97,7 +128,12 @@ export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormMo
         basicSalaryContracted: Number(form.basicSalaryContracted) || 0,
         noticePeriod: Number(form.noticePeriod) || 30,
         probationPeriod: Number(form.probationPeriod) || 90,
-      })
+      }
+      if (isEdit) {
+        await apiClient.put(`/employees/${employee._id}`, payload)
+      } else {
+        await apiClient.post('/employees', payload)
+      }
       onSuccess()
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } }
@@ -118,7 +154,7 @@ export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormMo
               <User className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800">Add New Employee</h2>
+              <h2 className="font-bold text-slate-800">{isEdit ? 'Edit Employee' : 'Add New Employee'}</h2>
               <p className="text-xs text-muted-foreground">Fill all sections then click Save</p>
             </div>
           </div>

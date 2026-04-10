@@ -12,7 +12,7 @@ import {
   ArrowLeft, Mail, Phone, Globe, Calendar, Building2, FolderKanban,
   TrendingUp, TrendingDown, DollarSign, Clock, CreditCard,
   Briefcase, MapPin, FileText, ShieldCheck, Banknote, Activity,
-  CheckCircle2, AlertTriangle, BarChart3,
+  CheckCircle2, AlertTriangle, BarChart3, Trash2, Pencil
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -30,6 +30,33 @@ function useEmployeeProfile(id: string) {
     },
     enabled: !!id,
   })
+}
+
+import EmployeeFormModal from '@/components/EmployeeFormModal'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+function DeleteConfirm({ name, onConfirm, onCancel, loading }: { name: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl mx-4">
+        <div className="w-12 h-12 bg-rose-500/15 rounded-xl flex items-center justify-center mb-4 mx-auto">
+          <Trash2 className="w-6 h-6 text-rose-400" />
+        </div>
+        <h3 className="text-white font-bold text-center text-lg">Delete Employee</h3>
+        <p className="text-slate-400 text-sm text-center mt-2">
+          Are you sure you want to delete <span className="text-white font-semibold">{name}</span>? This action cannot be undone.
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -383,8 +410,20 @@ function DocumentsTab({ emp }: { emp: any }) {
 export default function EmployeeProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteConf, setDeleteConf] = useState(false)
+
   const { data: profile, isLoading, error } = useEmployeeProfile(id)
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => await apiClient.delete(`/employees/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      router.push('/employees')
+    }
+  })
 
   if (isLoading) {
     return (
@@ -419,13 +458,39 @@ export default function EmployeeProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-900 -m-6 p-6 space-y-4">
-      {/* Back */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Employees
-      </button>
+      {editOpen && (
+        <EmployeeFormModal
+          employee={emp}
+          onClose={() => setEditOpen(false)}
+          onSuccess={() => { setEditOpen(false); qc.invalidateQueries({ queryKey: ['employee-profile', id] }) }}
+        />
+      )}
+      {deleteConf && (
+        <DeleteConfirm
+          name={emp.name}
+          onConfirm={() => deleteMutation.mutate()}
+          onCancel={() => setDeleteConf(false)}
+          loading={deleteMutation.isPending}
+        />
+      )}
+
+      {/* Header controls */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Employees
+        </button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white gap-2" onClick={() => setEditOpen(true)}>
+            <Pencil className="w-3.5 h-3.5" /> Edit Profile
+          </Button>
+          <Button variant="outline" size="sm" className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 gap-2" onClick={() => setDeleteConf(true)}>
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </Button>
+        </div>
+      </div>
 
       {/* ── Profile Hero ─────────────────────────────────────── */}
       <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden">

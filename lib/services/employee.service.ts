@@ -138,20 +138,24 @@ export async function createEmployee(data: EmployeeMutationInput): Promise<IEmpl
 
   // Auto-generate employee code if not provided
   if (!normalizedData.employeeCode) {
-    const count = await Employee.countDocuments()
-    normalizedData.employeeCode = generateEmployeeCode(count + 1)
+    const name = (normalizedData as any).name as string | undefined
+    let base = generateEmployeeCode(0, name)
+    let code = base
+    let suffix = 2
+    while (await Employee.exists({ employeeCode: code })) {
+      code = `${base}-${suffix++}`
+    }
+    normalizedData.employeeCode = code
+  } else {
+    // Ensure provided code is unique
+    let code = normalizedData.employeeCode
+    let suffix = 2
+    const base = code
+    while (await Employee.exists({ employeeCode: code })) {
+      code = `${base}-${suffix++}`
+    }
+    normalizedData.employeeCode = code
   }
-
-  // Ensure unique code
-  let code = normalizedData.employeeCode
-  let attempts = 0
-  while (await Employee.exists({ employeeCode: code })) {
-    const count = await Employee.countDocuments()
-    code = generateEmployeeCode(count + attempts + 2)
-    attempts++
-    if (attempts > 10) throw new Error('Could not generate unique employee code')
-  }
-  normalizedData.employeeCode = code
 
   const employee = await Employee.create(normalizedData)
   return employee
@@ -175,6 +179,17 @@ export async function updateEmployee(id: string, data: EmployeeMutationInput): P
   }
 
   return updated
+}
+
+export async function deleteEmployee(id: string): Promise<void> {
+  await dbConnect()
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw Object.assign(new Error('Invalid employee ID'), { statusCode: 400 })
+  }
+  const deleted = await Employee.findByIdAndDelete(id)
+  if (!deleted) {
+    throw Object.assign(new Error('Employee not found'), { statusCode: 404 })
+  }
 }
 
 export async function getEmployee360(employeeId: string): Promise<Employee360> {

@@ -1,16 +1,19 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
 import Link from 'next/link'
-import { Clock, Plus, Download, Upload, Search, X, Filter } from 'lucide-react'
+import { Clock, Plus, Download, Upload, Search, X, Filter, Trash2, Pencil } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
+import TimesheetFormModal from '@/components/TimesheetFormModal'
+import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table'
+import { TIMESHEET_COLUMNS } from '@/constants/tableColumns'
+import { ERPTableHeader } from '@/components/shared/ERPTableHeader'
+import { cn } from '@/lib/utils'
 
 const IMPORT_COLUMNS = [
   { key: 'employeeCode', label: 'Employee Code', required: true },
@@ -42,20 +45,6 @@ const TEMPLATE_ROWS = [
   },
 ]
 
-const HR_COLORS: Record<string, string> = {
-  'Approved': 'bg-emerald-100 text-emerald-700',
-  'Rejected': 'bg-rose-100 text-rose-700',
-  'Pending': 'bg-amber-100 text-amber-700',
-  'Under Review': 'bg-blue-100 text-blue-700',
-}
-
-const SIGNED_COLORS: Record<string, string> = {
-  'Uploaded': 'bg-emerald-100 text-emerald-700',
-  'Not Uploaded': 'bg-slate-100 text-slate-500',
-  'Pending': 'bg-amber-100 text-amber-700',
-  'Rejected': 'bg-rose-100 text-rose-700',
-}
-
 interface Filters {
   page: number
   search: string
@@ -82,12 +71,20 @@ function useTimesheets(filters: Filters) {
   })
 }
 
-function StatusPill({ value, map }: { value?: string; map: Record<string, string> }) {
-  if (!value) return <span className="text-slate-400 text-[10px]">—</span>
+function DeleteConfirm({ label, onConfirm, onCancel, loading }: { label: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[value] ?? 'bg-slate-100 text-slate-500'}`}>
-      {value}
-    </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-white border rounded-2xl p-6 max-w-sm w-full shadow-2xl mx-4">
+        <h3 className="font-bold text-lg text-slate-800">Delete Timesheet</h3>
+        <p className="text-slate-500 text-sm mt-2">Delete timesheet for <span className="font-semibold text-slate-700">{label}</span>? This cannot be undone.</p>
+        <div className="flex gap-3 mt-5">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -99,9 +96,18 @@ export default function TimesheetsPage() {
   const [month, setMonth] = useState('')
   const [hrStatus, setHrStatus] = useState('')
   const [signedStatus, setSignedStatus] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<any>(null)
+  const queryClient = useQueryClient()
 
   const filters: Filters = { page, search, month, hrStatus, signedStatus, client: '' }
   const { data, isLoading, error, refetch } = useTimesheets(filters)
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/timesheets/${id}`),
+    onSuccess: () => { setDeleteTarget(null); queryClient.invalidateQueries({ queryKey: ['timesheets'] }) },
+  })
 
   const hasFilters = !!(search || month || hrStatus || signedStatus)
 
@@ -140,8 +146,87 @@ export default function TimesheetsPage() {
     exportToCSV(rows, 'timesheets')
   }
 
+  const mappedData = useMemo(() => {
+    return (data?.data ?? []).map((ts: any) => {
+      const firstSite = ts.sites?.[0]
+      const totalSiteHrs = (ts.sites ?? []).reduce((s: number, si: any) => s + (si.servedHours ?? 0), 0)
+      const totalSiteDays = (ts.sites ?? []).reduce((s: number, si: any) => s + (si.servedDays ?? 0), 0)
+      
+      return {
+        ...ts,
+        empCode: ts.employeeId?.employeeCode ?? '—',
+        employeeName: ts.employeeId?.name ?? '—',
+        referenceCode: ts.referenceCode ?? '—',
+        siteName: firstSite?.siteName ?? ts.projectId?.name ?? '—',
+        siteCode: firstSite?.siteCode ?? '—',
+        projectName: firstSite?.projectName ?? ts.projectId?.name ?? '—',
+        projectCode: firstSite?.projectCode ?? '—',
+        monthYear: ts.month ?? '—',
+        reqHrs: ts.totalRequiredHours ?? 0,
+        normalHrs: ts.normalServedHours ?? ts.hours ?? 0,
+        otHrs: ts.totalOTHours ?? ts.overtimeHours ?? 0,
+        servedHrs: ts.totalServedHours ?? 0,
+        sumSitesHrs: totalSiteHrs || 0,
+        servedDays: ts.totalServedDays ?? ts.workingDays ?? 0,
+        sumSitesDays: totalSiteDays || 0,
+        leaves: ts.totalLeave ?? 0,
+        signedTs: ts.signedTimesheetStatus ?? '—'
+      }
+    })
+  }, [data?.data])
+
+  const tableColumns = useMemo(() => [
+    ...TIMESHEET_COLUMNS,
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }: any) => {
+        const ts = row.original
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <button
+              onClick={() => { setEditTarget(ts); setFormOpen(true) }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              title="Edit"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setDeleteTarget({ id: ts._id, label: `${ts.employeeId?.name ?? 'Unknown'} – ${ts.month}` })}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )
+      }
+    }
+  ], [])
+
+  const table = useReactTable({
+    data: mappedData,
+    columns: tableColumns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   return (
     <div className="space-y-4 animate-in fade-in pb-10">
+      {formOpen && (
+        <TimesheetFormModal
+          timesheet={editTarget}
+          onClose={() => { setFormOpen(false); setEditTarget(null) }}
+          onSuccess={() => { setFormOpen(false); setEditTarget(null); queryClient.invalidateQueries({ queryKey: ['timesheets'] }) }}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirm
+          label={deleteTarget.label}
+          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteMutation.isPending}
+        />
+      )}
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -175,7 +260,7 @@ export default function TimesheetsPage() {
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
             <Download className="h-4 w-4" /> Export
           </Button>
-          <Button className="shadow-md gap-2">
+          <Button className="shadow-md gap-2" onClick={() => { setEditTarget(null); setFormOpen(true) }}>
             <Plus className="h-4 w-4" /> Log Timesheet
           </Button>
         </div>
@@ -253,136 +338,58 @@ export default function TimesheetsPage() {
           <CardDescription>All columns from the official timesheet format. Scroll horizontally to view all fields.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="space-y-2 p-6">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="p-6 text-red-500 bg-red-50 rounded-lg mx-6 mb-6">Failed to load timesheets.</div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 sticky left-0 bg-slate-50 z-10">Emp Code</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 sticky left-[88px] bg-slate-50 z-10 min-w-[140px]">Employee Name</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-center"># Sites</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3">Reference Code</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 min-w-[120px]">Site Name</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3">Site Code (ERP)</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 min-w-[120px]">Project Name</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3">Project Code</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3">Month/Year</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">Req Hrs</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">Normal Hrs</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">OT Hrs</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">Served Hrs</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">∑ Sites Hrs</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">Served Days</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">∑ Sites Days</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 text-right">Leaves</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 min-w-[100px]">Signed TS</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 min-w-[110px]">HR Approval</TableHead>
-                      <TableHead className="whitespace-nowrap text-[11px] font-bold px-3 py-3 min-w-[110px]">Emp Signed</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {!data?.data?.length ? (
-                      <TableRow>
-                        <TableCell colSpan={20} className="text-center h-32 text-muted-foreground">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-sm min-w-max">
+                <ERPTableHeader table={table} isLoading={isLoading} />
+                {!isLoading && (
+                  <tbody className="bg-white">
+                    {table.getRowModel().rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={tableColumns.length} className="text-center h-32 text-slate-500 py-10">
                           <Clock className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                           No timesheets found. {hasFilters ? 'Try adjusting your filters.' : 'Import a CSV or log a timesheet.'}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ) : (
-                      data.data.map((ts: any) => {
-                        const firstSite = ts.sites?.[0]
-                        const totalSiteHrs = (ts.sites ?? []).reduce((s: number, si: any) => s + (si.servedHours ?? 0), 0)
-                        const totalSiteDays = (ts.sites ?? []).reduce((s: number, si: any) => s + (si.servedDays ?? 0), 0)
-                        return (
-                          <TableRow key={ts._id} className="hover:bg-slate-50 transition-colors">
-                            <TableCell className="px-3 py-2.5 font-mono text-xs text-slate-500 sticky left-0 bg-white">
-                              {ts.employeeId?.employeeCode ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 sticky left-[88px] bg-white">
-                              <Link href={`/timesheets/${ts._id}`} className="font-semibold text-blue-600 hover:underline text-sm whitespace-nowrap">
-                                {ts.employeeId?.name ?? '—'}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-center text-sm font-medium">
-                              {ts.sites?.length ?? 0}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 font-mono text-xs text-slate-500 whitespace-nowrap">
-                              {ts.referenceCode ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm whitespace-nowrap">
-                              {firstSite?.siteName ?? ts.projectId?.name ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 font-mono text-xs text-slate-500">
-                              {firstSite?.siteCode ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm whitespace-nowrap">
-                              {firstSite?.projectName ?? ts.projectId?.name ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 font-mono text-xs text-slate-500">
-                              {firstSite?.projectCode ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm whitespace-nowrap">
-                              {ts.month}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {ts.totalRequiredHours ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {ts.normalServedHours ?? ts.hours ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {ts.totalOTHours ?? ts.overtimeHours ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right font-semibold">
-                              {ts.totalServedHours ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {totalSiteHrs || '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {ts.totalServedDays ?? ts.workingDays ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {totalSiteDays || '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-sm text-right">
-                              {ts.totalLeave ?? '—'}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5">
-                              <StatusPill value={ts.signedTimesheetStatus} map={SIGNED_COLORS} />
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5">
-                              <StatusPill value={ts.hrApprovalStatus ?? ts.status} map={HR_COLORS} />
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5">
-                              <StatusPill value={ts.employeeSignedStatus} map={SIGNED_COLORS} />
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
+                      table.getRowModel().rows.map(row => (
+                        <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors h-10">
+                          {row.getVisibleCells().map(cell => {
+                            const meta = cell.column.columnDef.meta as any
+                            const align = meta?.align || (meta?.isNumeric ? 'center' : 'left')
+                            return (
+                              <td key={cell.id} className={cn("px-3 py-2 whitespace-nowrap text-slate-600", align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left')}>
+                                {cell.column.id === 'employeeName' ? (
+                                  <Link href={`/timesheets/${row.original._id}`} className="font-semibold text-blue-600 hover:underline">
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                  </Link>
+                                ) : (
+                                  flexRender(cell.column.columnDef.cell, cell.getContext())
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                )}
+              </table>
+            </div>
+          )}
+          
+          {data?.pagination && data.pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                Page {data.pagination.page} of {data.pagination.totalPages} — {data.pagination.total} records
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={!data.pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}>Previous</Button>
+                <Button variant="outline" size="sm" disabled={!data.pagination.hasNextPage} onClick={() => setPage(p => p + 1)}>Next</Button>
               </div>
-              {data?.pagination && data.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    Page {data.pagination.page} of {data.pagination.totalPages} — {data.pagination.total} records
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={!data.pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}>Previous</Button>
-                    <Button variant="outline" size="sm" disabled={!data.pagination.hasNextPage} onClick={() => setPage(p => p + 1)}>Next</Button>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -251,10 +251,26 @@ export function percentageChange(current: number, previous: number): number {
 // ─── Employee Code Generator ─────────────────────────────────────────────────
 
 /**
- * Generate an employee code from name and a sequence number.
- * Format: BIM-EMP-XXXXX
+ * Generate an employee code from name and year.
+ * Format: EMP-{FIRST4}-{YEAR} e.g. EMP-JOHN-2026
+ * Suffix -N appended for duplicates.
  */
-export function generateEmployeeCode(sequence: number): string {
+export function generateEmployeeCode(sequence: number, name?: string): string {
+  if (name) {
+    const slug = name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 4).padEnd(4, 'X')
+    const year = new Date().getFullYear()
+    return `EMP-${slug}-${year}`
+  }
   const paddedSeq = String(sequence).padStart(5, '0')
-  return `BIM-EMP-${paddedSeq}`
+  return `EMP-${paddedSeq}`
+}
+
+/**
+ * Generate a client code from name and year.
+ * Format: CLT-{FIRST4}-{YEAR} e.g. CLT-TUSH-2026
+ */
+export function generateClientCode(name: string): string {
+  const slug = name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 4).padEnd(4, 'X')
+  const year = new Date().getFullYear()
+  return `CLT-${slug}-${year}`
 }

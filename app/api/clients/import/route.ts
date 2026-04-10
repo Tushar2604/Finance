@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/auth/middleware'
-import { apiSuccess, apiError } from '@/lib/utils'
+import { apiSuccess, apiError, generateClientCode } from '@/lib/utils'
 import dbConnect from '@/lib/db/connection'
 import Client from '@/lib/db/models/Client'
 import type { JWTPayload } from '@/lib/auth/jwt'
@@ -44,7 +44,13 @@ export const POST = withAuth(
           await Client.findByIdAndUpdate(existing._id, doc)
           updated++
         } else {
-          await Client.create(doc)
+          // Auto-generate unique clientCode
+          const providedCode = row['clientCode']?.trim().toUpperCase()
+          let base = providedCode || generateClientCode(name)
+          let code = base
+          let suffix = 2
+          while (await Client.exists({ clientCode: code })) { code = `${base}-${suffix++}` }
+          await Client.create({ ...doc, clientCode: code })
           inserted++
         }
       }

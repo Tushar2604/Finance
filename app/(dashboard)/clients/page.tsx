@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
@@ -10,9 +11,40 @@ import {
   TrendingUp, AlertTriangle,
   Search, X, LayoutGrid, List,
   Globe, Phone, Mail, DollarSign,
+  Trash2, Pencil
 } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
+import ClientFormModal from '@/components/clients/ClientFormModal'
+import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table'
+import { CLIENT_COLUMNS } from '@/constants/tableColumns'
+import { ERPTableHeader } from '@/components/shared/ERPTableHeader'
+import { cn } from '@/lib/utils'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+function DeleteConfirm({ name, onConfirm, onCancel, loading }: { name: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white border rounded-2xl p-6 max-w-sm w-full shadow-2xl mx-4">
+        <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+          <Trash2 className="w-6 h-6 text-rose-600" />
+        </div>
+        <h3 className="text-slate-900 font-bold text-center text-lg">Delete Client</h3>
+        <p className="text-slate-500 text-sm text-center mt-2">
+          Are you sure you want to delete <span className="text-slate-800 font-semibold">{name}</span>? This action cannot be undone.
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const IMPORT_COLUMNS = [
   { key: 'name', label: 'Name', required: true },
@@ -35,12 +67,12 @@ const TEMPLATE_ROWS = [
 
 
 const CLIENT_AVATAR_COLORS = [
-  'from-blue-600 to-indigo-700',
-  'from-violet-600 to-purple-700',
-  'from-emerald-600 to-teal-700',
-  'from-amber-600 to-orange-700',
-  'from-rose-600 to-pink-700',
-  'from-cyan-600 to-blue-700',
+  'from-blue-100 to-blue-200 text-blue-700',
+  'from-violet-100 to-violet-200 text-violet-700',
+  'from-emerald-100 to-emerald-200 text-emerald-700',
+  'from-amber-100 to-amber-200 text-amber-700',
+  'from-rose-100 to-rose-200 text-rose-700',
+  'from-cyan-100 to-cyan-200 text-cyan-700',
 ]
 
 function getClientColor(name: string) {
@@ -78,15 +110,15 @@ function useClientStats() {
 
 function KpiCard({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: string; sub?: string; color: string }) {
   return (
-    <div className={`relative overflow-hidden bg-gradient-to-br ${color} border border-white/10 rounded-2xl p-5`}>
+    <div className="relative bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">{label}</p>
-          <p className="text-white text-2xl font-bold mt-1 tracking-tight">{value}</p>
-          {sub && <p className="text-white/50 text-xs mt-1">{sub}</p>}
+          <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest">{label}</p>
+          <p className="text-slate-900 text-2xl font-bold mt-1 tracking-tight">{value}</p>
+          {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
         </div>
-        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
-          <Icon className="w-5 h-5 text-white/80" />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+          <Icon className="w-5 h-5 text-current" />
         </div>
       </div>
     </div>
@@ -98,9 +130,23 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<any>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const { data, isLoading, refetch } = useClients({ page, search, status })
   const { data: stats } = useClientStats()
+  const router = useRouter()
+  const qc = useQueryClient()
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/clients/${id}`),
+    onSuccess: () => {
+      setDeleteTarget(null)
+      qc.invalidateQueries({ queryKey: ['clients'] })
+      qc.invalidateQueries({ queryKey: ['client-stats'] })
+    }
+  })
 
   const handleExport = () => {
     const rows = (data?.data ?? []).map((c: any) => ({
@@ -120,11 +166,83 @@ export default function ClientsPage() {
     exportToCSV(rows, 'clients')
   }
 
+  const mappedData = useMemo(() => {
+    return (data?.data ?? []).map((c: any) => ({
+      ...c,
+      clientCode: c.clientCode ?? '—',
+      clientName: c.name ?? '—',
+      website: c.website ?? '—',
+      industry: c.industry ?? '—',
+      email: c.companyDetails?.email ?? '—',
+      phone: c.companyDetails?.phone ?? '—',
+      address: c.companyDetails?.address ?? '—',
+      taxNumber: c.companyDetails?.taxNumber ?? '—',
+      serviceAgreement: c.serviceAgreement ?? '—',
+      signedAgreement: c.signedAgreement ?? '—',
+      agreementNo: c.agreementNo ?? '—',
+      weeklyHoursDeal: c.weeklyHoursDeal ?? 0,
+      validLpo: c.validLpo ?? '—',
+      contractDuration: c.contractDuration ?? 0,
+      discipline: c.discipline ?? '—',
+      lpoNo: c.lpoNo ?? '—',
+      monthlyDeal: c.monthlyDeal ?? '—',
+      workStation: c.workStation ?? '—',
+      otDeal: c.otDeal ?? '—',
+      invoiceType: c.invoiceType ?? '—',
+    }))
+  }, [data?.data])
+
+  const table = useReactTable({
+    data: mappedData,
+    columns: useMemo(() => [
+      ...CLIENT_COLUMNS,
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }: any) => {
+          const client = row.original
+          return (
+            <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => { setEditTarget(client); setFormOpen(true) }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setDeleteTarget({ id: client._id, name: client.name })}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )
+        }
+      }
+    ], []),
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   const totalClients = data?.pagination?.total ?? 0
   const activeClients = (data?.data ?? []).filter((c: any) => c.isActive).length
 
   return (
-    <div className="min-h-screen bg-slate-900 -m-6 p-6">
+    <div className="space-y-4 animate-in fade-in pb-10">
+      {formOpen && (
+        <ClientFormModal
+          client={editTarget}
+          onClose={() => { setFormOpen(false); setEditTarget(null) }}
+          onSuccess={() => { setFormOpen(false); setEditTarget(null); qc.invalidateQueries({ queryKey: ['clients'] }) }}
+        />
+      )}
+      {deleteTarget && (
+        <DeleteConfirm
+          name={deleteTarget.name}
+          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteMutation.isPending}
+        />
+      )}
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -136,51 +254,53 @@ export default function ClientsPage() {
       />
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/40">
-              <Building2 className="w-5 h-5 text-white" />
+      <div className="bg-white p-6 rounded-xl shadow-sm border mb-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Client Hub</h1>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Client Hub</h1>
+            <p className="text-slate-500 text-sm ml-12">Full business lifecycle from LPO to profit — in one place.</p>
           </div>
-          <p className="text-slate-400 text-sm ml-12">Full business lifecycle from LPO to profit — in one place.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-700 gap-2" onClick={() => setImportOpen(true)}>
-            <Upload className="h-4 w-4" /> Import
-          </Button>
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-700 gap-2" onClick={handleExport} disabled={!data?.data?.length}>
-            <Download className="h-4 w-4" /> Export
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-900/40">
-            <Plus className="h-4 w-4" /> Add Client
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Import
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
+              <Download className="h-4 w-4" /> Export
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-md" onClick={() => { setEditTarget(null); setFormOpen(true) }}>
+              <Plus className="h-4 w-4" /> Add Client
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard icon={Building2}   label="Total Clients"    value={String(totalClients || '—')} sub={`${activeClients} active`}        color="from-blue-700/60 to-blue-900/40" />
-        <KpiCard icon={DollarSign}  label="Total Revenue"    value={stats?.totalRevenue ? `AED ${(stats.totalRevenue/1000).toFixed(0)}K` : '—'} sub="All invoiced"   color="from-emerald-700/60 to-emerald-900/40" />
-        <KpiCard icon={AlertTriangle} label="Outstanding"    value={stats?.outstandingAmount ? `AED ${(stats.outstandingAmount/1000).toFixed(0)}K` : '—'} sub={`${stats?.outstandingCount ?? 0} invoices`} color="from-amber-700/60 to-amber-900/40" />
-        <KpiCard icon={TrendingUp}  label="Net Profit %"     value={stats?.profitPct ? `${stats.profitPct.toFixed(1)}%` : '—'} sub="Current month"  color="from-violet-700/60 to-violet-900/40" />
+        <KpiCard icon={Building2}   label="Total Clients"    value={String(totalClients || '—')} sub={`${activeClients} active`}        color="bg-blue-100 text-blue-600" />
+        <KpiCard icon={DollarSign}  label="Total Revenue"    value={stats?.totalRevenue ? `AED ${(stats.totalRevenue/1000).toFixed(0)}K` : '—'} sub="All invoiced"   color="bg-emerald-100 text-emerald-600" />
+        <KpiCard icon={AlertTriangle} label="Outstanding"    value={stats?.outstandingAmount ? `AED ${(stats.outstandingAmount/1000).toFixed(0)}K` : '—'} sub={`${stats?.outstandingCount ?? 0} invoices`} color="bg-amber-100 text-amber-600" />
+        <KpiCard icon={TrendingUp}  label="Net Profit %"     value={stats?.profitPct ? `${stats.profitPct.toFixed(1)}%` : '—'} sub="Current month"  color="bg-violet-100 text-violet-600" />
       </div>
 
       <div>
           {/* Search + filter row */}
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1) }}
                 placeholder="Search clients…"
-                className="w-full bg-slate-800/80 border border-slate-700/60 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
               />
               {search && (
-                <button onClick={() => { setSearch(''); setPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                <button onClick={() => { setSearch(''); setPage(1) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -192,25 +312,25 @@ export default function ClientsPage() {
                   onClick={() => { setStatus(s); setPage(1) }}
                   className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
                     status === s
-                      ? 'bg-blue-600 border-blue-500 text-white'
-                      : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500'
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-50'
                   }`}
                 >
                   {s === '' ? 'All' : s === 'true' ? 'Active' : 'Inactive'}
                 </button>
               ))}
             </div>
-            <div className="flex bg-slate-800/80 border border-slate-700/60 rounded-xl p-1 gap-1 ml-auto">
+            <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 gap-1 ml-auto">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600 border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                 title="Grid view"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600 border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                 title="List view"
               >
                 <List className="w-4 h-4" />
@@ -221,19 +341,19 @@ export default function ClientsPage() {
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-slate-800/50 border border-slate-700/40 rounded-2xl p-5 animate-pulse">
-                  <div className="w-12 h-12 rounded-xl bg-slate-700 mb-3" />
-                  <div className="h-4 bg-slate-700 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-slate-700 rounded w-1/2" />
+                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 animate-pulse">
+                  <div className="w-12 h-12 rounded-xl bg-slate-200 mb-3" />
+                  <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
                 </div>
               ))}
             </div>
           ) : data?.data?.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
-                <Building2 className="w-8 h-8 text-slate-500" />
+            <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-slate-200 rounded-2xl shadow-sm">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
+                <Building2 className="w-8 h-8 text-slate-400" />
               </div>
-              <p className="text-slate-300 font-semibold">No clients found</p>
+              <p className="text-slate-800 font-semibold">No clients found</p>
               <p className="text-slate-500 text-sm mt-1">
                 {search || status ? 'Try adjusting your filters.' : 'Import a CSV or run npm run seed.'}
               </p>
@@ -245,28 +365,44 @@ export default function ClientsPage() {
                 const initials = getInitials(client.name)
                 return (
                   <Link key={client._id} href={`/clients/${client._id}`} className="block group">
-                    <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 hover:border-slate-500/80 hover:bg-slate-800 transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5">
-                      {/* Status + Industry */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-slate-300 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                      {/* Status + Industry and Actions */}
                       <div className="flex items-center justify-between mb-4">
-                        <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                          client.isActive
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                            : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                        }`}>
-                          {client.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                        {client.industry && (
-                          <span className="text-[10px] text-slate-500 font-medium">{client.industry}</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                            client.isActive
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}>
+                            {client.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                          {client.industry && (
+                            <span className="text-[10px] text-slate-500 font-medium">{client.industry}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-1" onClick={e => e.preventDefault()}>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditTarget(client); setFormOpen(true) }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget({ id: client._id, name: client.name }) }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Logo/Avatar + Name */}
                       <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center shrink-0 shadow-lg`}>
-                          <span className="text-white font-bold text-sm">{initials}</span>
+                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center shrink-0`}>
+                          <span className="font-bold text-sm tracking-wide">{initials}</span>
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-white font-bold text-sm leading-tight group-hover:text-blue-300 transition-colors truncate">
+                          <h3 className="text-slate-900 font-bold text-sm leading-tight group-hover:text-blue-600 transition-colors truncate">
                             {client.name}
                           </h3>
                           <p className="text-slate-500 text-xs mt-0.5 truncate">{client.contractType ?? 'No contract'}</p>
@@ -276,36 +412,36 @@ export default function ClientsPage() {
                       {/* Details */}
                       <div className="space-y-1.5">
                         {client.companyDetails?.email && (
-                          <div className="flex items-center gap-2 text-slate-400 text-xs">
-                            <Mail className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                          <div className="flex items-center gap-2 text-slate-500 text-xs">
+                            <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                             <span className="truncate">{client.companyDetails.email}</span>
                           </div>
                         )}
                         {client.companyDetails?.phone && (
-                          <div className="flex items-center gap-2 text-slate-400 text-xs">
-                            <Phone className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                          <div className="flex items-center gap-2 text-slate-500 text-xs">
+                            <Phone className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                             <span>{client.companyDetails.phone}</span>
                           </div>
                         )}
                         {client.website && (
-                          <div className="flex items-center gap-2 text-slate-400 text-xs">
-                            <Globe className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                          <div className="flex items-center gap-2 text-slate-500 text-xs">
+                            <Globe className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                             <span className="truncate">{client.website.replace(/^https?:\/\//, '')}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-700/60">
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
                         <div>
                           <p className="text-[10px] text-slate-500">Rate Card</p>
-                          <p className="text-sm font-bold text-slate-200">
+                          <p className="text-sm font-bold text-slate-800">
                             {client.rateCard ? `AED ${client.rateCard}/hr` : '—'}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] text-slate-500">Credit Terms</p>
-                          <p className="text-xs text-slate-300 font-medium">
+                          <p className="text-xs text-slate-700 font-medium">
                             {client.creditTerms ? `${client.creditTerms} days` : '—'}
                           </p>
                         </div>
@@ -317,76 +453,58 @@ export default function ClientsPage() {
             </div>
           ) : (
             /* List view */
-            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden">
-              <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-5 py-3 border-b border-slate-700/60 bg-slate-800/80">
-                <div className="w-10" />
-                <div>Client</div>
-                <div>Contact</div>
-                <div>Contract</div>
-                <div>Rate</div>
-                <div>Status</div>
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-sm min-w-max">
+                  <ERPTableHeader table={table} isLoading={isLoading} />
+                  {!isLoading && (
+                    <tbody className="bg-white">
+                      {table.getRowModel().rows.length === 0 ? (
+                        <tr>
+                          <td colSpan={CLIENT_COLUMNS.length} className="text-center h-32 text-slate-500 py-10">
+                            <Building2 className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                            No clients found.
+                          </td>
+                        </tr>
+                      ) : (
+                        table.getRowModel().rows.map(row => (
+                          <tr
+                            key={row.id}
+                            className="border-b border-slate-100 hover:bg-slate-50 transition-colors h-10 cursor-pointer"
+                            onClick={() => router.push(`/clients/${row.original._id}`)}
+                          >
+                            {row.getVisibleCells().map(cell => {
+                              const meta = cell.column.columnDef.meta as any
+                              const align = meta?.align || (meta?.isNumeric ? 'center' : 'left')
+                              return (
+                                <td key={cell.id} className={cn("px-3 py-2 whitespace-nowrap text-slate-600", align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left')}>
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  )}
+                </table>
               </div>
-              {data?.data?.map((client: any) => {
-                const avatarColor = getClientColor(client.name)
-                const initials = getInitials(client.name)
-                return (
-                  <Link
-                    key={client._id}
-                    href={`/clients/${client._id}`}
-                    className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 items-center px-5 py-3.5 border-b border-slate-700/40 last:border-0 hover:bg-slate-700/30 transition-colors group"
-                  >
-                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center mr-4 shrink-0`}>
-                      <span className="text-white font-bold text-xs">{initials}</span>
-                    </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm group-hover:text-blue-300 transition-colors">{client.name}</p>
-                      <p className="text-slate-500 text-xs">{client.industry ?? '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-xs">{client.companyDetails?.email ?? '—'}</p>
-                      <p className="text-slate-500 text-xs">{client.companyDetails?.phone ?? '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-300 text-sm">{client.contractType ?? '—'}</p>
-                      <p className="text-slate-500 text-xs">{client.billingType ?? '—'}</p>
-                    </div>
-                    <div className="mr-6">
-                      <p className="text-slate-200 font-semibold text-sm">
-                        {client.rateCard ? `AED ${client.rateCard}/hr` : '—'}
-                      </p>
-                      <p className="text-slate-500 text-xs">
-                        {client.creditTerms ? `${client.creditTerms}d terms` : ''}
-                      </p>
-                    </div>
-                    <div>
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        client.isActive
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                          : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${client.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`} />
-                        {client.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </Link>
-                )
-              })}
             </div>
           )}
 
           {/* Pagination */}
           {data?.pagination && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <p className="text-sm text-slate-500">
                 Page {data.pagination.page} of {data.pagination.totalPages} — {data.pagination.total} clients
               </p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" disabled={!data.pagination.hasPrevPage} onClick={() => setPage(p => p - 1)}
-                  className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white">
+                  className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800">
                   Previous
                 </Button>
                 <Button variant="outline" size="sm" disabled={!data.pagination.hasNextPage} onClick={() => setPage(p => p + 1)}
-                  className="border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white">
+                  className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800">
                   Next
                 </Button>
               </div>

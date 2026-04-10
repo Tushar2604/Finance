@@ -25,10 +25,15 @@ async function main() {
   await mongoose.connect(MONGODB_URI, { bufferCommands: false })
   console.log('Connected to MongoDB')
 
+  // Only delete seeded/demo records — identified by the seed patterns
+  const seededEmpCodes = Array.from({ length: 25 }, (_, i) =>
+    `BIM-EMP-${String(i + 1).padStart(5, '0')}`
+  )
+
   const [empRes, tsRes, salRes] = await Promise.all([
-    Employee.deleteMany({}),
-    Timesheet.deleteMany({}),
-    Salary.deleteMany({}),
+    Employee.deleteMany({ employeeCode: { $in: seededEmpCodes } }),
+    Timesheet.deleteMany({ notes: /^Standard hours \d{4}-\d{2}$/ }),
+    Salary.deleteMany({ bankReference: /^SAL-\d{4}-\d{2}-BIM-EMP-/ }),
   ])
 
   console.log(`  ✓ Employees deleted : ${empRes.deletedCount}`)

@@ -12,9 +12,33 @@ import { Progress } from '@/components/ui/progress'
 import {
   ArrowLeft, Clock, Calendar, User, Building2,
   FolderKanban, CheckCircle2, XCircle, AlertCircle,
-  TrendingUp, Minus,
+  TrendingUp, Minus, Trash2, Pencil
 } from 'lucide-react'
 import { format } from 'date-fns'
+import TimesheetFormModal from '@/components/TimesheetFormModal'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+function DeleteConfirm({ label, onConfirm, onCancel, loading }: { label: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white border text-center rounded-2xl p-6 max-w-sm w-full shadow-2xl mx-4">
+        <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+          <Trash2 className="w-6 h-6 text-rose-600" />
+        </div>
+        <h3 className="text-slate-900 font-bold text-lg">Delete Timesheet</h3>
+        <p className="text-slate-500 text-sm mt-2">
+          Are you sure you want to delete timesheet for <span className="font-semibold text-slate-800">{label}</span>? This cannot be undone.
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>Cancel</Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 text-white" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function useTimesheet(id: string) {
   return useQuery({
@@ -69,6 +93,18 @@ const statusVariant = (s: string): 'default' | 'destructive' | 'secondary' | 'ou
 export default function TimesheetProfilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const qc = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteConf, setDeleteConf] = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.delete(`/timesheets/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['timesheets'] })
+      router.push('/timesheets')
+    }
+  })
+
   const { data: ts, isLoading, error } = useTimesheet(id)
 
   if (isLoading) {
@@ -105,9 +141,35 @@ export default function TimesheetProfilePage() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
-      <Button variant="ghost" onClick={() => router.back()} className="gap-2 text-muted-foreground hover:text-foreground -ml-2">
-        <ArrowLeft className="h-4 w-4" /> Back to Timesheets
-      </Button>
+      {editOpen && (
+        <TimesheetFormModal
+          timesheet={ts}
+          onClose={() => setEditOpen(false)}
+          onSuccess={() => { setEditOpen(false); qc.invalidateQueries({ queryKey: ['timesheet', id] }); qc.invalidateQueries({ queryKey: ['timesheets'] }) }}
+        />
+      )}
+      {deleteConf && (
+        <DeleteConfirm
+          label={emp ? (emp.name ?? `${emp.firstName} ${emp.lastName}`) : 'Unknown'}
+          onConfirm={() => deleteMutation.mutate()}
+          onCancel={() => setDeleteConf(false)}
+          loading={deleteMutation.isPending}
+        />
+      )}
+
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2 text-muted-foreground hover:text-foreground -ml-2">
+          <ArrowLeft className="h-4 w-4" /> Back to Timesheets
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-2">
+            <Pencil className="h-3.5 w-3.5" /> Edit Timesheet
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setDeleteConf(true)} className="gap-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700">
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        </div>
+      </div>
 
       {/* Header */}
       <Card className="shadow-sm border overflow-hidden">
