@@ -34,9 +34,9 @@ export default function SystemRecordsPage() {
     .filter((r: SystemRecord) => typeFilter === 'All' || r.type === typeFilter)
     .filter((r: SystemRecord) => !search || r.label.toLowerCase().includes(search.toLowerCase()) || r.party?.toLowerCase().includes(search.toLowerCase()))
 
-  const invoiceTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Invoice').reduce((s, r: SystemRecord) => s + r.amount, 0)
-  const salaryTotal  = systemRecs.filter((r: SystemRecord) => r.type === 'Salary').reduce((s, r: SystemRecord) => s + r.amount, 0)
-  const expenseTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Expense').reduce((s, r: SystemRecord) => s + r.amount, 0)
+  const invoiceTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Invoice').reduce((s: number, r: SystemRecord) => s + r.amount, 0)
+  const salaryTotal  = systemRecs.filter((r: SystemRecord) => r.type === 'Salary').reduce((s: number, r: SystemRecord) => s + r.amount, 0)
+  const expenseTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Expense').reduce((s: number, r: SystemRecord) => s + r.amount, 0)
 
   const handleExport = () => {
     exportToCSV(filtered.map(r => ({

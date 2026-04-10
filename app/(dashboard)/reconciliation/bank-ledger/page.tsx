@@ -6,10 +6,9 @@ import apiClient from '@/lib/api'
 import { useBankTransactions, BankTx } from '@/lib/hooks/useReconciliation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import { Building2, Search, X, RefreshCw, TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react'
+import { Building2, Search, X, RefreshCw, TrendingUp, TrendingDown, Download } from 'lucide-react'
 import { format } from 'date-fns'
 import { exportToCSV } from '@/lib/export'
-import { Download } from 'lucide-react'
 
 export default function BankLedgerPage() {
   const currentMonth = format(new Date(), 'yyyy-MM')
@@ -33,10 +32,9 @@ export default function BankLedgerPage() {
     .filter((tx: BankTx) => matchFilter === 'All' || tx.matchStatus === matchFilter)
     .filter((tx: BankTx) => !search || tx.description.toLowerCase().includes(search.toLowerCase()) || tx.counterparty?.toLowerCase().includes(search.toLowerCase()))
 
-  const creditTotal   = bankTxs.filter(t => t.type === 'Credit').reduce((s, t) => s + t.amount, 0)
-  const debitTotal    = bankTxs.filter(t => t.type === 'Debit').reduce((s, t) => s + t.amount, 0)
-  const matchedCount  = bankTxs.filter(t => t.matchStatus === 'Matched').length
-  const unmatchedCount= bankTxs.filter(t => t.matchStatus !== 'Matched').length
+  const creditTotal   = bankTxs.filter((t: BankTx) => t.type === 'Credit').reduce((s: number, t: BankTx) => s + t.amount, 0)
+  const debitTotal    = bankTxs.filter((t: BankTx) => t.type === 'Debit').reduce((s: number, t: BankTx) => s + t.amount, 0)
+  const matchedCount  = bankTxs.filter((t: BankTx) => t.matchStatus === 'Matched').length
 
   const handleExport = () => {
     exportToCSV(filtered.map(tx => ({

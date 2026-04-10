@@ -38,9 +38,9 @@ export interface MatchSuggestion {
 // ─── Hooks ─────────────────────────────────────────────────────────────────────
 
 export function useBankTransactions(month: string) {
-  return useQuery({
+  return useQuery<BankTx[]>({
     queryKey: ['bank-recon', month],
-    queryFn: async () => {
+    queryFn: async (): Promise<BankTx[]> => {
       const params = new URLSearchParams({ limit: '100' })
       if (month) params.append('month', month)
       const { data } = await apiClient.get<any>(`/bank?${params}`)
@@ -60,9 +60,9 @@ export function useBankTransactions(month: string) {
 }
 
 export function useSystemRecords() {
-  return useQuery({
+  return useQuery<SystemRecord[]>({
     queryKey: ['system-records'],
-    queryFn: async () => {
+    queryFn: async (): Promise<SystemRecord[]> => {
       const [inv, sal, exp] = await Promise.all([
         apiClient.get<any>(`/invoices?limit=50`),
         apiClient.get<any>(`/salaries?limit=50`),
