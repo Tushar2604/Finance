@@ -164,22 +164,22 @@ export default function WorkbenchPage() {
   })
 
   const allMatches      = computeMatches(bankTxs, systemRecs)
-  const filteredSuggs   = allMatches.filter(m =>
+  const filteredSuggs   = allMatches.filter((m: MatchSuggestion) =>
     !approvedMatches.has(m.bankTx._id + m.systemRecord._id) &&
     !rejectedMatches.has(m.bankTx._id + m.systemRecord._id)
   )
 
   const filteredBank    = bankTxs
-    .filter(t => bankFilter === 'All' || t.type === bankFilter)
-    .filter(t => !bankSearch || t.description.toLowerCase().includes(bankSearch.toLowerCase()) || t.counterparty?.toLowerCase().includes(bankSearch.toLowerCase()))
+    .filter((t: BankTx) => bankFilter === 'All' || t.type === bankFilter)
+    .filter((t: BankTx) => !bankSearch || t.description.toLowerCase().includes(bankSearch.toLowerCase()) || t.counterparty?.toLowerCase().includes(bankSearch.toLowerCase()))
 
-  const filteredSystem  = systemRecs.filter(r => systemFilter === 'All' || r.type === systemFilter)
+  const filteredSystem  = systemRecs.filter((r: SystemRecord) => systemFilter === 'All' || r.type === systemFilter)
 
   const approveMatch = useCallback((m: MatchSuggestion) => setApprovedMatches(p => new Set([...p, m.bankTx._id + m.systemRecord._id])), [])
   const rejectMatch  = useCallback((m: MatchSuggestion) => setRejectedMatches(p => new Set([...p, m.bankTx._id + m.systemRecord._id])), [])
 
-  const creditTotal = bankTxs.filter(t => t.type === 'Credit').reduce((s, t) => s + t.amount, 0)
-  const debitTotal  = bankTxs.filter(t => t.type === 'Debit').reduce((s, t) => s + t.amount, 0)
+  const creditTotal = bankTxs.filter((t: BankTx) => t.type === 'Credit').reduce((s: number, t: BankTx) => s + t.amount, 0)
+  const debitTotal  = bankTxs.filter((t: BankTx) => t.type === 'Debit').reduce((s: number, t: BankTx) => s + t.amount, 0)
 
   return (
     <div className="min-h-screen bg-slate-900 -m-6 p-6 flex flex-col gap-4">
@@ -275,7 +275,7 @@ export default function WorkbenchPage() {
 
           <div className="px-4 py-2.5 border-t border-slate-700/40 bg-slate-800/80 flex justify-between text-[10px]">
             <span className="text-emerald-400 font-semibold">↑ AED {(creditTotal/1000).toFixed(1)}K</span>
-            <span className="text-slate-500">{bankTxs.filter(t => t.matchStatus === 'Matched').length} matched</span>
+            <span className="text-slate-500">{bankTxs.filter((t: BankTx) => t.matchStatus === 'Matched').length} matched</span>
             <span className="text-rose-400 font-semibold">↓ AED {(debitTotal/1000).toFixed(1)}K</span>
           </div>
         </div>
@@ -305,9 +305,9 @@ export default function WorkbenchPage() {
           </div>
 
           <div className="px-4 py-2.5 border-t border-slate-700/40 bg-slate-800/80 flex justify-between text-[10px]">
-            <span className="text-amber-400 font-semibold">{systemRecs.filter(r => r.type === 'Invoice').length} inv</span>
-            <span className="text-blue-400 font-semibold">{systemRecs.filter(r => r.type === 'Salary').length} sal</span>
-            <span className="text-rose-400 font-semibold">{systemRecs.filter(r => r.type === 'Expense').length} exp</span>
+            <span className="text-amber-400 font-semibold">{systemRecs.filter((r: SystemRecord) => r.type === 'Invoice').length} inv</span>
+            <span className="text-blue-400 font-semibold">{systemRecs.filter((r: SystemRecord) => r.type === 'Salary').length} sal</span>
+            <span className="text-rose-400 font-semibold">{systemRecs.filter((r: SystemRecord) => r.type === 'Expense').length} exp</span>
           </div>
         </div>
 
@@ -339,7 +339,7 @@ export default function WorkbenchPage() {
 
           {filteredSuggs.length > 0 && (
             <div className="px-3 py-2.5 border-t border-slate-700/40 bg-slate-800/80 flex gap-2">
-              <button onClick={() => allMatches.filter(m => m.confidence >= 90).forEach(approveMatch)}
+              <button onClick={() => allMatches.filter((m: MatchSuggestion) => m.confidence >= 90).forEach(approveMatch)}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold hover:bg-emerald-600/30 transition-colors">
                 <CheckCheck className="w-3 h-3" /> Approve All High
               </button>

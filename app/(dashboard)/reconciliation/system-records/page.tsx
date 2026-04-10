@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useSystemRecords } from '@/lib/hooks/useReconciliation'
+import { useSystemRecords, SystemRecord } from '@/lib/hooks/useReconciliation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { FileText, Wallet, Receipt, Search, X, Download } from 'lucide-react'
@@ -31,12 +31,12 @@ export default function SystemRecordsPage() {
   const { data: systemRecs = [], isLoading } = useSystemRecords()
 
   const filtered = systemRecs
-    .filter(r => typeFilter === 'All' || r.type === typeFilter)
-    .filter(r => !search || r.label.toLowerCase().includes(search.toLowerCase()) || r.party?.toLowerCase().includes(search.toLowerCase()))
+    .filter((r: SystemRecord) => typeFilter === 'All' || r.type === typeFilter)
+    .filter((r: SystemRecord) => !search || r.label.toLowerCase().includes(search.toLowerCase()) || r.party?.toLowerCase().includes(search.toLowerCase()))
 
-  const invoiceTotal = systemRecs.filter(r => r.type === 'Invoice').reduce((s, r) => s + r.amount, 0)
-  const salaryTotal  = systemRecs.filter(r => r.type === 'Salary').reduce((s, r) => s + r.amount, 0)
-  const expenseTotal = systemRecs.filter(r => r.type === 'Expense').reduce((s, r) => s + r.amount, 0)
+  const invoiceTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Invoice').reduce((s, r: SystemRecord) => s + r.amount, 0)
+  const salaryTotal  = systemRecs.filter((r: SystemRecord) => r.type === 'Salary').reduce((s, r: SystemRecord) => s + r.amount, 0)
+  const expenseTotal = systemRecs.filter((r: SystemRecord) => r.type === 'Expense').reduce((s, r: SystemRecord) => s + r.amount, 0)
 
   const handleExport = () => {
     exportToCSV(filtered.map(r => ({
@@ -168,9 +168,9 @@ export default function SystemRecordsPage() {
           </table>
         </div>
         <div className="px-6 py-3 border-t border-slate-700/40 bg-slate-800/80 flex justify-between text-xs">
-          <span className="text-amber-400 font-semibold">{systemRecs.filter(r => r.type === 'Invoice').length} invoices</span>
+          <span className="text-amber-400 font-semibold">{systemRecs.filter((r: SystemRecord) => r.type === 'Invoice').length} invoices</span>
           <span className="text-slate-500">{filtered.length} records shown</span>
-          <span className="text-blue-400 font-semibold">{systemRecs.filter(r => r.type === 'Salary').length} salaries · <span className="text-rose-400">{systemRecs.filter(r => r.type === 'Expense').length} expenses</span></span>
+          <span className="text-blue-400 font-semibold">{systemRecs.filter((r: SystemRecord) => r.type === 'Salary').length} salaries · <span className="text-rose-400">{systemRecs.filter((r: SystemRecord) => r.type === 'Expense').length} expenses</span></span>
         </div>
       </div>
     </div>

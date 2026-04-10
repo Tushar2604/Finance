@@ -132,7 +132,7 @@ export default function AISuggestedPage() {
 
   const allMatches = computeMatches(bankTxs, systemRecs)
 
-  const filtered = allMatches.filter(m => {
+  const filtered = allMatches.filter((m: MatchSuggestion) => {
     if (confidenceFilter === 'High')   return m.confidence >= 90
     if (confidenceFilter === 'Medium') return m.confidence >= 70 && m.confidence < 90
     if (confidenceFilter === 'Low')    return m.confidence < 70
@@ -150,10 +150,10 @@ export default function AISuggestedPage() {
     setApprovedMatches(prev => { const s = new Set(prev); s.delete(key); return s })
   }, [])
 
-  const highCount   = allMatches.filter(m => m.confidence >= 90).length
-  const medCount    = allMatches.filter(m => m.confidence >= 70 && m.confidence < 90).length
-  const lowCount    = allMatches.filter(m => m.confidence < 70).length
-  const pending     = allMatches.filter(m => !approvedMatches.has(m.bankTx._id + m.systemRecord._id) && !rejectedMatches.has(m.bankTx._id + m.systemRecord._id)).length
+  const highCount   = allMatches.filter((m: MatchSuggestion) => m.confidence >= 90).length
+  const medCount    = allMatches.filter((m: MatchSuggestion) => m.confidence >= 70 && m.confidence < 90).length
+  const lowCount    = allMatches.filter((m: MatchSuggestion) => m.confidence < 70).length
+  const pending     = allMatches.filter((m: MatchSuggestion) => !approvedMatches.has(m.bankTx._id + m.systemRecord._id) && !rejectedMatches.has(m.bankTx._id + m.systemRecord._id)).length
 
   return (
     <div className="min-h-screen bg-slate-900 -m-6 p-6 space-y-5">
@@ -227,7 +227,7 @@ export default function AISuggestedPage() {
         </div>
         <div className="ml-auto flex gap-2">
           <button
-            onClick={() => allMatches.filter(m => m.confidence >= 90).forEach(approveMatch)}
+            onClick={() => allMatches.filter((m: MatchSuggestion) => m.confidence >= 90).forEach(approveMatch)}
             className="px-4 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-600/30 transition-colors flex items-center gap-1.5">
             <CheckCheck className="w-3.5 h-3.5" /> Approve All High ({highCount})
           </button>

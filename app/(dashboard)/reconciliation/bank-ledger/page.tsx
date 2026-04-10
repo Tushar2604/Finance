@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
-import { useBankTransactions } from '@/lib/hooks/useReconciliation'
+import { useBankTransactions, BankTx } from '@/lib/hooks/useReconciliation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Building2, Search, X, RefreshCw, TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react'
@@ -29,9 +29,9 @@ export default function BankLedgerPage() {
   })
 
   const filtered = bankTxs
-    .filter(tx => filter === 'All' || tx.type === filter)
-    .filter(tx => matchFilter === 'All' || tx.matchStatus === matchFilter)
-    .filter(tx => !search || tx.description.toLowerCase().includes(search.toLowerCase()) || tx.counterparty?.toLowerCase().includes(search.toLowerCase()))
+    .filter((tx: BankTx) => filter === 'All' || tx.type === filter)
+    .filter((tx: BankTx) => matchFilter === 'All' || tx.matchStatus === matchFilter)
+    .filter((tx: BankTx) => !search || tx.description.toLowerCase().includes(search.toLowerCase()) || tx.counterparty?.toLowerCase().includes(search.toLowerCase()))
 
   const creditTotal   = bankTxs.filter(t => t.type === 'Credit').reduce((s, t) => s + t.amount, 0)
   const debitTotal    = bankTxs.filter(t => t.type === 'Debit').reduce((s, t) => s + t.amount, 0)
