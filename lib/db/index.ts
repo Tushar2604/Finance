@@ -12,15 +12,16 @@ export { default as ReconciliationRecord } from './models/ReconciliationRecord'
 export { default as Alert } from './models/Alert'
 export { default as AuditLog } from './models/AuditLog'
 export { default as UploadBatch } from './models/UploadBatch'
+export { default as Deployment } from './models/Deployment'
 
 // Type re-exports
 export type { IUser, UserRole, IUserPublic } from './models/User'
-export type { IClient, ContractType, BillingType, ICompanyDetails } from './models/Client'
+export type { IClient, ContractType, BillingType, ICompanyDetails, ClientStatus, IScopePricing } from './models/Client'
 export type { IProject, ProjectStatus } from './models/Project'
-export type { IEmployee, EmployeeStatus, IBankDetails } from './models/Employee'
-export type { ITimesheet, TimesheetStatus } from './models/Timesheet'
-export type { IInvoice, InvoiceStatus } from './models/Invoice'
-export type { ISalary, PaymentMode, PaymentStatus } from './models/Salary'
+export type { IEmployee, EmployeeStatus, IBankDetails, IClientWorked } from './models/Employee'
+export type { ITimesheet, TimesheetStatus, SignedTimesheetStatus, HRApprovalStatus, ITimesheetSite } from './models/Timesheet'
+export type { IInvoice, InvoiceStatus, IInvoiceLineItem } from './models/Invoice'
+export type { ISalary, PaymentMode, PaymentStatus, SalaryStatus, WPSStatus } from './models/Salary'
 export type {
   IExpense,
   ExpenseCategory,
@@ -46,3 +47,4 @@ export type {
   UploadBatchStatus,
   IUploadBatchError,
 } from './models/UploadBatch'
+export type { IDeployment, DeploymentStatus, DeploymentBillingType } from './models/Deployment'

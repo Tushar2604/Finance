@@ -8,7 +8,7 @@ import apiClient from '@/lib/api'
 import {
   Building2, Download, Upload, Plus,
   TrendingUp, AlertTriangle,
-  Search, X,
+  Search, X, LayoutGrid, List,
   Globe, Phone, Mail, DollarSign,
 } from 'lucide-react'
 import { exportToCSV } from '@/lib/export'
@@ -98,6 +98,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const { data, isLoading, refetch } = useClients({ page, search, status })
   const { data: stats } = useClientStats()
 
@@ -168,8 +169,8 @@ export default function ClientsPage() {
 
       <div>
           {/* Search + filter row */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="text"
@@ -199,6 +200,22 @@ export default function ClientsPage() {
                 </button>
               ))}
             </div>
+            <div className="flex bg-slate-800/80 border border-slate-700/60 rounded-xl p-1 gap-1 ml-auto">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Grid view"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -221,7 +238,7 @@ export default function ClientsPage() {
                 {search || status ? 'Try adjusting your filters.' : 'Import a CSV or run npm run seed.'}
               </p>
             </div>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {data?.data?.map((client: any) => {
                 const avatarColor = getClientColor(client.name)
@@ -293,6 +310,63 @@ export default function ClientsPage() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            /* List view */
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden">
+              <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-5 py-3 border-b border-slate-700/60 bg-slate-800/80">
+                <div className="w-10" />
+                <div>Client</div>
+                <div>Contact</div>
+                <div>Contract</div>
+                <div>Rate</div>
+                <div>Status</div>
+              </div>
+              {data?.data?.map((client: any) => {
+                const avatarColor = getClientColor(client.name)
+                const initials = getInitials(client.name)
+                return (
+                  <Link
+                    key={client._id}
+                    href={`/clients/${client._id}`}
+                    className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 items-center px-5 py-3.5 border-b border-slate-700/40 last:border-0 hover:bg-slate-700/30 transition-colors group"
+                  >
+                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center mr-4 shrink-0`}>
+                      <span className="text-white font-bold text-xs">{initials}</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-sm group-hover:text-blue-300 transition-colors">{client.name}</p>
+                      <p className="text-slate-500 text-xs">{client.industry ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">{client.companyDetails?.email ?? '—'}</p>
+                      <p className="text-slate-500 text-xs">{client.companyDetails?.phone ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-300 text-sm">{client.contractType ?? '—'}</p>
+                      <p className="text-slate-500 text-xs">{client.billingType ?? '—'}</p>
+                    </div>
+                    <div className="mr-6">
+                      <p className="text-slate-200 font-semibold text-sm">
+                        {client.rateCard ? `AED ${client.rateCard}/hr` : '—'}
+                      </p>
+                      <p className="text-slate-500 text-xs">
+                        {client.creditTerms ? `${client.creditTerms}d terms` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        client.isActive
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${client.isActive ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                        {client.isActive ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
                   </Link>
                 )

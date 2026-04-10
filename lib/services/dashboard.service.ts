@@ -49,21 +49,21 @@ function getCurrentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
-function getLast6Months(): string[] {
+function getLastNMonths(n: number): string[] {
   const months: string[] = []
   const now = new Date()
-  for (let i = 5; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
   return months
 }
 
-export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(months = 6): Promise<DashboardMetrics> {
   await dbConnect()
 
   const currentMonth = getCurrentMonth()
-  const last6 = getLast6Months()
+  const last6 = getLastNMonths(months)
 
   // --- Revenue aggregation by month ---
   const revenueByMonth = await Invoice.aggregate([

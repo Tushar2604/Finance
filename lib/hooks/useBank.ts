@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import apiClient, { PaginatedResponse, SingleResponse } from '@/lib/api'
-import { IBankTransaction } from '@/lib/db/models/BankTransaction'
+import apiClient, { SingleResponse } from '@/lib/api'
 
 interface BankFilters {
   page?: number
   limit?: number
   matchStatus?: string
   transactionType?: string
+  description?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 export function useBankTransactions(filters: BankFilters) {
@@ -18,6 +20,9 @@ export function useBankTransactions(filters: BankFilters) {
       if (filters.limit) params.append('limit', filters.limit.toString())
       if (filters.matchStatus) params.append('matchStatus', filters.matchStatus)
       if (filters.transactionType) params.append('transactionType', filters.transactionType)
+      if (filters.description) params.append('description', filters.description)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
 
       const { data } = await apiClient.get<any>(`/bank?${params.toString()}`)
       return data.data

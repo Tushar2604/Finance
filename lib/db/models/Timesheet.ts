@@ -1,16 +1,31 @@
 import mongoose, { Document, Model, Schema } from 'mongoose'
 
 export type TimesheetStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected'
+export type SignedTimesheetStatus = 'Pending' | 'Uploaded' | 'Verified'
+export type HRApprovalStatus = 'Pending' | 'Approved' | 'Rejected'
+
+export interface ITimesheetSite {
+  siteName: string
+  siteCode: string
+  projectName: string
+  projectCode: string
+  requiredHours: number
+  normalHours: number
+  otHours: number
+  servedHours: number
+  servedDays: number
+}
 
 export interface ITimesheet extends Document {
   _id: mongoose.Types.ObjectId
+  referenceCode: string
   employeeId: mongoose.Types.ObjectId
   clientId: mongoose.Types.ObjectId
   projectId: mongoose.Types.ObjectId | null
   month: string // YYYY-MM
   workingDays: number
-  hours: number           // total hours logged
-  billableHours: number   // hours billed to client
+  hours: number
+  billableHours: number
   nonBillableHours: number
   overtimeHours: number
   leaveDays: number
@@ -19,6 +34,16 @@ export interface ITimesheet extends Document {
   approvalDate: Date | null
   status: TimesheetStatus
   notes: string
+  sites: ITimesheetSite[]
+  totalRequiredHours: number
+  normalServedHours: number
+  totalOTHours: number
+  totalServedHours: number
+  totalServedDays: number
+  totalLeave: number
+  signedTimesheetStatus: SignedTimesheetStatus
+  hrApprovalStatus: HRApprovalStatus
+  employeeSignedStatus: 'Pending' | 'Uploaded'
   createdAt: Date
   updatedAt: Date
 }
@@ -107,15 +132,55 @@ const TimesheetSchema = new Schema<ITimesheet>(
       maxlength: [1000, 'Notes cannot exceed 1000 characters'],
       default: '',
     },
+    referenceCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
+      default: '',
+    },
+    sites: [
+      {
+        siteName: { type: String, default: '' },
+        siteCode: { type: String, default: '' },
+        projectName: { type: String, default: '' },
+        projectCode: { type: String, default: '' },
+        requiredHours: { type: Number, min: 0, default: 0 },
+        normalHours: { type: Number, min: 0, default: 0 },
+        otHours: { type: Number, min: 0, default: 0 },
+        servedHours: { type: Number, min: 0, default: 0 },
+        servedDays: { type: Number, min: 0, default: 0 },
+      },
+    ],
+    totalRequiredHours: { type: Number, min: 0, default: 0 },
+    normalServedHours: { type: Number, min: 0, default: 0 },
+    totalOTHours: { type: Number, min: 0, default: 0 },
+    totalServedHours: { type: Number, min: 0, default: 0 },
+    totalServedDays: { type: Number, min: 0, default: 0 },
+    totalLeave: { type: Number, min: 0, default: 0 },
+    signedTimesheetStatus: {
+      type: String,
+      enum: ['Pending', 'Uploaded', 'Verified'],
+      default: 'Pending',
+    },
+    hrApprovalStatus: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending',
+    },
+    employeeSignedStatus: {
+      type: String,
+      enum: ['Pending', 'Uploaded'],
+      default: 'Pending',
+    },
   },
   { timestamps: true }
 )
 
-// Compound unique index — one timesheet per employee per client per month
-TimesheetSchema.index(
-  { employeeId: 1, clientId: 1, month: 1 },
-  { unique: true }
-)
+// Compound index — no longer unique (employees can have multiple timesheets per site)
+TimesheetSchema.index({ employeeId: 1, clientId: 1, month: 1 })
+TimesheetSchema.index({ referenceCode: 1 }, { unique: true, sparse: true })
 TimesheetSchema.index({ month: 1 })
 TimesheetSchema.index({ status: 1 })
 TimesheetSchema.index({ clientId: 1 })

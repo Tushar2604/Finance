@@ -8,6 +8,12 @@ export interface IBankDetails {
   iban: string
 }
 
+export interface IClientWorked {
+  clientId: mongoose.Types.ObjectId
+  clientCode: string
+  clientName: string
+}
+
 export interface IEmployee extends Document {
   _id: mongoose.Types.ObjectId
   name: string
@@ -22,6 +28,12 @@ export interface IEmployee extends Document {
   nationality: string
   phone: string
   bankDetails: IBankDetails
+  clientsWorkedWith: IClientWorked[]
+  currentMonthlySalary: number
+  monthlySalaryContracted: number
+  basicSalaryContracted: number
+  noticePeriod: number
+  probationPeriod: number
   createdAt: Date
   updatedAt: Date
 }
@@ -112,6 +124,18 @@ const EmployeeSchema = new Schema<IEmployee>(
       type: BankDetailsSchema,
       default: () => ({ bankName: '', accountNumber: '', iban: '' }),
     },
+    clientsWorkedWith: [
+      {
+        clientId: { type: Schema.Types.ObjectId, ref: 'Client' },
+        clientCode: { type: String, default: '' },
+        clientName: { type: String, default: '' },
+      },
+    ],
+    currentMonthlySalary: { type: Number, min: 0, default: 0 },
+    monthlySalaryContracted: { type: Number, min: 0, default: 0 },
+    basicSalaryContracted: { type: Number, min: 0, default: 0 },
+    noticePeriod: { type: Number, min: 0, default: 30 },
+    probationPeriod: { type: Number, min: 0, default: 90 },
   },
   { timestamps: true }
 )

@@ -27,6 +27,9 @@ const EMPTY_FORM = {
   // Position
   position: '', department: '', baseSalary: '', paymentMode: 'Bank',
   enableWeeklyTimesheet: 'No', description: '',
+  // Contract details (new)
+  currentMonthlySalary: '', monthlySalaryContracted: '', basicSalaryContracted: '',
+  noticePeriod: '30', probationPeriod: '90',
   // Location
   countryOfService: '', cityOfService: '', staffingType: 'Permanent',
   mobilizationAddress: '', mobilizationMap: '',
@@ -89,6 +92,11 @@ export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormMo
         baseSalary: Number(form.baseSalary),
         paymentMode: form.paymentMode,
         bankDetails: { bankName: form.bankName, accountNumber: form.accountNumber, iban: form.iban },
+        currentMonthlySalary: Number(form.currentMonthlySalary) || 0,
+        monthlySalaryContracted: Number(form.monthlySalaryContracted) || 0,
+        basicSalaryContracted: Number(form.basicSalaryContracted) || 0,
+        noticePeriod: Number(form.noticePeriod) || 30,
+        probationPeriod: Number(form.probationPeriod) || 90,
       })
       onSuccess()
     } catch (e: unknown) {
@@ -212,6 +220,27 @@ export default function EmployeeFormModal({ onClose, onSuccess }: EmployeeFormMo
                     </div>
                   </>
                 )}
+              </div>
+
+              <div className="h-px bg-slate-100" />
+              <h3 className="text-xs font-bold text-orange-500 uppercase tracking-widest">Labour Contract Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Current Monthly Salary (AED)">
+                  <Input type="number" value={form.currentMonthlySalary} onChange={e => set('currentMonthlySalary')(e.target.value)} placeholder="0" />
+                </Field>
+                <Field label="Monthly Salary (Labour Contract, AED)">
+                  <Input type="number" value={form.monthlySalaryContracted} onChange={e => set('monthlySalaryContracted')(e.target.value)} placeholder="0" />
+                </Field>
+                <Field label="Basic Salary (Labour Contract, AED)">
+                  <Input type="number" value={form.basicSalaryContracted} onChange={e => set('basicSalaryContracted')(e.target.value)} placeholder="0" />
+                </Field>
+                <div />
+                <Field label="Notice Period (days)">
+                  <Input type="number" value={form.noticePeriod} onChange={e => set('noticePeriod')(e.target.value)} placeholder="30" />
+                </Field>
+                <Field label="Probation Period (days)">
+                  <Input type="number" value={form.probationPeriod} onChange={e => set('probationPeriod')(e.target.value)} placeholder="90" />
+                </Field>
               </div>
 
               <div className="h-px bg-slate-100" />

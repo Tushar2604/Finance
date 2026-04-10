@@ -2,12 +2,19 @@ import mongoose, { Document, Model, Schema } from 'mongoose'
 
 export type ContractType = 'LPO' | 'Agreement' | 'None'
 export type BillingType = 'Monthly' | 'Milestone' | 'Hourly'
+export type ClientStatus = 'Active' | 'Inactive' | 'Blacklisted'
 
 export interface ICompanyDetails {
   address: string
   phone: string
   email: string
   taxNumber: string
+}
+
+export interface IScopePricing {
+  scopeName: string
+  totalAmount: number
+  billingType: 'Milestone' | 'Monthly'
 }
 
 export interface IClient extends Document {
@@ -21,6 +28,14 @@ export interface IClient extends Document {
   billingType: BillingType
   creditTerms: number
   isActive: boolean
+  clientStatus: ClientStatus
+  city: string
+  country: string
+  primaryContactName: string
+  primaryContactDesignation: string
+  salesPerson: string
+  penaltyClause: string
+  scopePricing: IScopePricing[]
   createdAt: Date
   updatedAt: Date
 }
@@ -87,6 +102,24 @@ const ClientSchema = new Schema<IClient>(
       type: Boolean,
       default: true,
     },
+    clientStatus: {
+      type: String,
+      enum: { values: ['Active', 'Inactive', 'Blacklisted'], message: '{VALUE} is not valid' },
+      default: 'Active',
+    },
+    city: { type: String, trim: true, default: '' },
+    country: { type: String, trim: true, default: '' },
+    primaryContactName: { type: String, trim: true, default: '' },
+    primaryContactDesignation: { type: String, trim: true, default: '' },
+    salesPerson: { type: String, trim: true, default: '' },
+    penaltyClause: { type: String, trim: true, default: '' },
+    scopePricing: [
+      {
+        scopeName: { type: String, default: '' },
+        totalAmount: { type: Number, min: 0, default: 0 },
+        billingType: { type: String, enum: ['Milestone', 'Monthly'], default: 'Monthly' },
+      },
+    ],
   },
   { timestamps: true }
 )
@@ -95,6 +128,7 @@ const ClientSchema = new Schema<IClient>(
 ClientSchema.index({ name: 1 })
 ClientSchema.index({ isActive: 1 })
 ClientSchema.index({ contractType: 1 })
+ClientSchema.index({ clientStatus: 1 })
 
 const Client: Model<IClient> =
   mongoose.models.Client ?? mongoose.model<IClient>('Client', ClientSchema)

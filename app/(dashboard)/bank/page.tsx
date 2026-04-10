@@ -12,7 +12,7 @@ import apiClient from '@/lib/api'
 import {
   UploadCloud, FileText, CheckCircle2, Download, X,
   ArrowUpRight, ArrowDownLeft, Calendar, CreditCard,
-  Building2, Hash, Banknote, Activity,
+  Building2, Hash, Banknote, Activity, Search, Filter,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { exportToCSV } from '@/lib/export'
@@ -181,9 +181,20 @@ function TransactionDrawer({ id, onClose }: { id: string; onClose: () => void })
 export default function BankPage() {
   const [page, setPage] = useState(1)
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null)
-  const { data, isLoading, error } = useBankTransactions({ page, limit: 15 })
+  const [showFilters, setShowFilters] = useState(false)
+  const [description, setDescription] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [matchStatus, setMatchStatus] = useState('')
+  const hasFilters = !!(description || dateFrom || dateTo || matchStatus)
+
+  const { data, isLoading, error } = useBankTransactions({ page, limit: 15, description, dateFrom, dateTo, matchStatus: matchStatus as any || undefined })
   const uploadMutation = useUploadBankStatement()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const clearFilters = () => {
+    setDescription(''); setDateFrom(''); setDateTo(''); setMatchStatus(''); setPage(1)
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -222,6 +233,13 @@ export default function BankPage() {
           <p className="text-muted-foreground mt-1">Upload and review bank transactions for reconciliation.</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className={`gap-2 ${hasFilters ? 'border-blue-500 text-blue-600' : ''}`}
+            onClick={() => setShowFilters(v => !v)}
+          >
+            <Filter className="h-4 w-4" /> Filters{hasFilters ? ' •' : ''}
+          </Button>
           <Button variant="outline" className="gap-2" onClick={handleExport} disabled={!data?.data?.length}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
@@ -233,6 +251,65 @@ export default function BankPage() {
           </Button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">Description / Company Name</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={description}
+                onChange={e => { setDescription(e.target.value); setPage(1) }}
+                placeholder="Search narration…"
+                className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+              {description && (
+                <button onClick={() => setDescription('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="min-w-[140px]">
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">Date From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setPage(1) }}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+          </div>
+          <div className="min-w-[140px]">
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">Date To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setPage(1) }}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+          </div>
+          <div className="min-w-[150px]">
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">Match Status</label>
+            <select
+              value={matchStatus}
+              onChange={e => { setMatchStatus(e.target.value); setPage(1) }}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              <option value="">All</option>
+              <option>Matched</option>
+              <option>Unmatched</option>
+              <option>Partial</option>
+            </select>
+          </div>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="gap-1 text-slate-500 hover:text-slate-800" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" /> Clear
+            </Button>
+          )}
+        </div>
+      )}
 
       {uploadMutation.isSuccess && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center gap-3">

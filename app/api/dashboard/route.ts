@@ -5,9 +5,11 @@ import { getDashboardMetrics } from '@/lib/services/dashboard.service'
 import type { JWTPayload } from '@/lib/auth/jwt'
 
 export const GET = withAuth(
-  async (_req: NextRequest, _context: { params: Record<string, string> }, _user: JWTPayload): Promise<NextResponse> => {
+  async (req: NextRequest, _context: { params: Record<string, string> }, _user: JWTPayload): Promise<NextResponse> => {
     try {
-      const result = await getDashboardMetrics()
+      const { searchParams } = new URL(req.url)
+      const months = parseInt(searchParams.get('months') ?? '6', 10)
+      const result = await getDashboardMetrics(months)
       return NextResponse.json(apiSuccess(result))
     } catch (err: any) {
       console.error('[GET /api/dashboard]', err)

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
@@ -11,25 +10,39 @@ import { Users, Plus, Download, Upload, LayoutGrid, List, Mail, Phone, Calendar,
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
 import EmployeeFormModal from '@/components/EmployeeFormModal'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { format } from 'date-fns'
 
 const IMPORT_COLUMNS = [
-  { key: 'name', label: 'Name', required: true },
+  { key: 'employeeCode', label: 'Employee Code', required: true },
+  { key: 'name', label: 'Employee Name', required: true },
   { key: 'email', label: 'Email', required: true },
   { key: 'position', label: 'Position', required: true },
-  { key: 'baseSalary', label: 'Base Salary', required: true },
-  { key: 'joiningDate', label: 'Joining Date' },
-  { key: 'status', label: 'Status' },
+  { key: 'clientCode', label: 'Clients Code (Worked with)' },
+  { key: 'clientName', label: 'Clients Name (Worked with)' },
+  { key: 'currentMonthlySalary', label: 'Current Monthly Salary' },
+  { key: 'monthlySalaryContracted', label: 'Monthly Salary (as per LC)' },
+  { key: 'basicSalaryContracted', label: 'Basic Salary (as per LC)' },
+  { key: 'noticePeriod', label: 'Notice Period (as per LC)' },
+  { key: 'probationPeriod', label: 'Probation Period (as per LC)' },
   { key: 'nationality', label: 'Nationality' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'employeeCode', label: 'Employee Code' },
-  { key: 'bankName', label: 'Bank Name' },
-  { key: 'accountNumber', label: 'Account Number' },
-  { key: 'iban', label: 'IBAN' },
 ]
 
 const TEMPLATE_ROWS = [
-  { name: 'John Smith', email: 'john@bimstaff.ae', position: 'Senior Engineer', baseSalary: '15000', joiningDate: '2023-01-15', status: 'Active', nationality: 'Expat', phone: '+971501234567', employeeCode: '', bankName: 'Emirates NBD', accountNumber: '0001234567', iban: 'AE070331234567890123456' },
+  {
+    employeeCode: 'EMP-001',
+    name: 'John Smith',
+    email: 'john@bimstaff.ae',
+    position: 'Senior Engineer',
+    clientCode: 'CLI-001',
+    clientName: 'Acme Corp',
+    currentMonthlySalary: '18000',
+    monthlySalaryContracted: '17000',
+    basicSalaryContracted: '12000',
+    noticePeriod: '30',
+    probationPeriod: '90',
+    nationality: 'Indian',
+  },
 ]
 
 const STATUS_CONFIG: Record<string, { color: string; dot: string; label: string }> = {
@@ -169,23 +182,23 @@ export default function EmployeesPage() {
   const [status, setStatus] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const { data, isLoading, error, refetch } = useEmployees({ page, search, status })
 
   const handleExport = () => {
-    const rows = (data?.data ?? []).map((emp: any) => ({
-      name: emp.name,
-      email: emp.email,
-      position: emp.position ?? '',
-      baseSalary: emp.baseSalary,
-      joiningDate: emp.joiningDate ? new Date(emp.joiningDate).toISOString().split('T')[0] : '',
-      status: emp.status,
-      nationality: emp.nationality ?? '',
-      phone: emp.phone ?? '',
-      employeeCode: emp.employeeCode,
-      bankName: emp.bankDetails?.bankName ?? '',
-      accountNumber: emp.bankDetails?.accountNumber ?? '',
-      iban: emp.bankDetails?.iban ?? '',
+    const rows = (data?.data ?? []).map((emp: any, idx: number) => ({
+      'S No.': (page - 1) * 24 + idx + 1,
+      'Employee Code': emp.employeeCode ?? '',
+      'Employee Name': emp.name,
+      'Position': emp.position ?? '',
+      'Clients Code (Worked with)': (emp.clientsWorkedWith ?? []).map((c: any) => c.clientCode).filter(Boolean).join(', ') || '',
+      'Clients Name (Worked with)': (emp.clientsWorkedWith ?? []).map((c: any) => c.clientName).filter(Boolean).join(', ') || (emp.assignedClientId as any)?.name || '',
+      'Current Monthly Salary': emp.currentMonthlySalary ?? '',
+      'Monthly Salary (as per LC)': emp.monthlySalaryContracted ?? '',
+      'Basic Salary (as per LC)': emp.basicSalaryContracted ?? '',
+      'Notice Period (as per LC)': emp.noticePeriod ?? '',
+      'Probation Period (as per LC)': emp.probationPeriod ?? '',
+      'Nationality': emp.nationality ?? '',
     }))
     exportToCSV(rows, 'employees')
   }
@@ -342,52 +355,86 @@ export default function EmployeesPage() {
           {data?.data?.map((emp: any) => <EmployeeCard key={emp._id} emp={emp} />)}
         </div>
       ) : (
-        /* List view */
+        /* List view — exact columns from spec */
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-5 py-3 border-b border-slate-700/60 bg-slate-800/80">
-            <div className="w-10" />
-            <div>Name</div>
-            <div>Position</div>
-            <div>Contact</div>
-            <div>Salary</div>
-            <div>Status</div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700/60 hover:bg-transparent">
+                  {[
+                    'S No.', 'Employee Code', 'Employee Name', 'Position',
+                    'Clients Code\n(Worked with)', 'Clients Name\n(Worked with)',
+                    'Current Monthly\nSalary', 'Monthly Salary\n(as per LC)',
+                    'Basic Salary\n(as per LC)', 'Notice Period\n(as per LC)',
+                    'Probation Period\n(as per LC)', 'Nationality',
+                  ].map(h => (
+                    <TableHead
+                      key={h}
+                      className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-800/80 whitespace-pre-line text-center py-3 px-3 border-r border-slate-700/40 last:border-0"
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.data?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center h-32 text-slate-400">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                      No employees found.
+                    </TableCell>
+                  </TableRow>
+                ) : data?.data?.map((emp: any, idx: number) => {
+                  const clientCodes = (emp.clientsWorkedWith ?? []).map((c: any) => c.clientCode).filter(Boolean).join(', ')
+                  const clientNames = (emp.clientsWorkedWith ?? []).map((c: any) => c.clientName).filter(Boolean).join(', ')
+                    || (emp.assignedClientId as any)?.name || ''
+                  const sNo = (page - 1) * 24 + idx + 1
+                  return (
+                    <TableRow
+                      key={emp._id}
+                      className="border-slate-700/40 hover:bg-slate-700/30 transition-colors group"
+                    >
+                      <TableCell className="text-center text-slate-400 text-xs font-mono px-3 py-3">{sNo}</TableCell>
+                      <TableCell className="px-3 py-3">
+                        <Link href={`/employees/${emp._id}`} className="font-mono text-xs text-blue-400 hover:text-blue-300 hover:underline font-semibold">
+                          {emp.employeeCode}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-3 py-3 whitespace-nowrap">
+                        <Link href={`/employees/${emp._id}`} className="text-white font-semibold text-sm group-hover:text-blue-300 transition-colors">
+                          {emp.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-slate-300 text-sm whitespace-nowrap">{emp.position ?? '—'}</TableCell>
+                      <TableCell className="px-3 py-3 text-center">
+                        <span className="font-mono text-xs text-slate-400">{clientCodes || '—'}</span>
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-slate-300 text-sm whitespace-nowrap">{clientNames || '—'}</TableCell>
+                      <TableCell className="px-3 py-3 text-right text-sm font-semibold text-slate-200 whitespace-nowrap">
+                        {emp.currentMonthlySalary ? `AED ${emp.currentMonthlySalary.toLocaleString()}` : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-right text-sm text-slate-300 whitespace-nowrap">
+                        {emp.monthlySalaryContracted ? `AED ${emp.monthlySalaryContracted.toLocaleString()}` : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-right text-sm text-slate-300 whitespace-nowrap">
+                        {emp.basicSalaryContracted ? `AED ${emp.basicSalaryContracted.toLocaleString()}` : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-center text-sm text-slate-300">
+                        {emp.noticePeriod != null ? `${emp.noticePeriod} days` : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-center text-sm text-slate-300">
+                        {emp.probationPeriod != null ? `${emp.probationPeriod} days` : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-center text-sm text-slate-300">
+                        {emp.nationality || '—'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </div>
-          {data?.data?.map((emp: any) => {
-            const statusCfg = STATUS_CONFIG[emp.status] ?? STATUS_CONFIG['Inactive']
-            const avatarColor = getAvatarColor(emp.name)
-            return (
-              <Link
-                key={emp._id}
-                href={`/employees/${emp._id}`}
-                className="grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-0 items-center px-5 py-3.5 border-b border-slate-700/40 last:border-0 hover:bg-slate-700/30 transition-colors group"
-              >
-                <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center mr-4 shrink-0`}>
-                  <span className="text-white font-bold text-xs">{getInitials(emp.name)}</span>
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-sm group-hover:text-blue-300 transition-colors">{emp.name}</p>
-                  <p className="text-slate-500 text-[10px] font-mono">{emp.employeeCode}</p>
-                </div>
-                <div>
-                  <p className="text-slate-300 text-sm">{emp.position ?? '—'}</p>
-                  <p className="text-slate-500 text-xs">{(emp.assignedClientId as any)?.name ?? 'Internal'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 text-xs">{emp.email}</p>
-                  <p className="text-slate-500 text-xs">{emp.phone ?? '—'}</p>
-                </div>
-                <div className="mr-6">
-                  <p className="text-slate-200 font-semibold text-sm">AED {emp.baseSalary?.toLocaleString() ?? '—'}</p>
-                </div>
-                <div>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${statusCfg.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
-                    {statusCfg.label}
-                  </span>
-                </div>
-              </Link>
-            )
-          })}
         </div>
       )}
 

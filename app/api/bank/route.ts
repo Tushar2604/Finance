@@ -11,10 +11,13 @@ export const GET = withAuth(
       const matchStatus = searchParams.get('matchStatus') as 'Matched' | 'Unmatched' | 'Partial' | undefined
       const transactionType = searchParams.get('transactionType') as 'Debit' | 'Credit' | undefined
       const uploadBatchId = searchParams.get('uploadBatchId') ?? undefined
+      const description = searchParams.get('description') ?? undefined
+      const dateFrom = searchParams.get('dateFrom') ?? undefined
+      const dateTo = searchParams.get('dateTo') ?? undefined
       const page = parseInt(searchParams.get('page') ?? '1', 10)
       const limit = parseInt(searchParams.get('limit') ?? '50', 10)
 
-      const result = await getBankTransactions({ matchStatus, transactionType, uploadBatchId, page, limit })
+      const result = await getBankTransactions({ matchStatus, transactionType, uploadBatchId, description, dateFrom, dateTo, page, limit })
       return NextResponse.json(apiSuccess(result))
     } catch (err: any) {
       console.error('[GET /api/bank]', err)

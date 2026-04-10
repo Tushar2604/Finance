@@ -11,6 +11,8 @@ export interface TimesheetFilters {
   clientId?: string
   month?: string
   status?: string
+  hrApprovalStatus?: string
+  signedTimesheetStatus?: string
   page?: number
   limit?: number
 }
@@ -72,7 +74,7 @@ function normalizeTimesheetMutationInput(data: TimesheetMutationInput): Partial<
 export async function getTimesheets(filters: TimesheetFilters): Promise<PaginatedTimesheets> {
   await dbConnect()
 
-  const { employeeId, clientId, month, status, page = 1, limit = 20 } = filters
+  const { employeeId, clientId, month, status, hrApprovalStatus, signedTimesheetStatus, page = 1, limit = 20 } = filters
   const { skip, limit: safeLimit } = paginate(page, limit)
 
   const query: mongoose.FilterQuery<ITimesheet> = {}
@@ -85,6 +87,8 @@ export async function getTimesheets(filters: TimesheetFilters): Promise<Paginate
   }
   if (month) query.month = month
   if (status) query.status = status
+  if (hrApprovalStatus) query.hrApprovalStatus = hrApprovalStatus
+  if (signedTimesheetStatus) query.signedTimesheetStatus = signedTimesheetStatus
 
   const [data, total] = await Promise.all([
     Timesheet.find(query)

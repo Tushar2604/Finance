@@ -13,8 +13,11 @@ import {
 
 export interface InvoiceFilters {
   clientId?: string
+  projectId?: string
   status?: string
   month?: string
+  search?: string
+  paidOnly?: boolean
   page?: number
   limit?: number
 }
@@ -86,21 +89,27 @@ function normalizeInvoiceMutationInput(data: InvoiceMutationInput): Partial<IInv
 export async function getInvoices(filters: InvoiceFilters): Promise<PaginatedInvoices> {
   await dbConnect()
 
-  const { clientId, status, month, page = 1, limit = 20 } = filters
+  const { clientId, projectId, status, month, search, paidOnly, page = 1, limit = 20 } = filters
   const { skip, limit: safeLimit } = paginate(page, limit)
 
   const query: mongoose.FilterQuery<IInvoice> = {}
   if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
     query.clientId = new mongoose.Types.ObjectId(clientId)
   }
+  if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
+    query.projectId = new mongoose.Types.ObjectId(projectId)
+  }
   if (status) query.status = status
   if (month) query.month = month
+  if (search) query.invoiceNumber = { $regex: search, $options: 'i' }
+  if (paidOnly) query.paidAmount = { $gt: 0 }
 
   const [data, total] = await Promise.all([
     Invoice.find(query)
       .populate('clientId', 'name companyDetails')
       .populate('employeeId', 'name employeeCode')
       .populate('projectId', 'name')
+      .populate('bankTransactionId', 'reference paymentChannel description')
       .sort({ invoiceDate: -1 })
       .skip(skip)
       .limit(safeLimit)

@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -56,7 +56,7 @@ function SkeletonCard() {
 /* ══════════════════════════════════════════════════════
    WIDGET 1 — Revenue vs Salary (Live)
 ══════════════════════════════════════════════════════ */
-function RevenueVsSalaryWidget({ snapshots }: { snapshots: any[] }) {
+function RevenueVsSalaryWidget({ snapshots, months, onMonthsChange }: { snapshots: any[]; months: number; onMonthsChange: (m: number) => void }) {
   const curMonth = snapshots[snapshots.length - 1]
   const revGtSal = (curMonth?.revenue ?? 0) >= (curMonth?.salary ?? 0)
 
@@ -67,17 +67,32 @@ function RevenueVsSalaryWidget({ snapshots }: { snapshots: any[] }) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-emerald-600" />
-              Revenue vs Salary — Last 6 Months
+              Revenue vs Salary — Last {months} Months
             </CardTitle>
             <CardDescription>Monthly billing revenue compared to total salary payout</CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground">This month</div>
-            <div className={`text-sm font-bold flex items-center gap-1 justify-end ${revGtSal ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {revGtSal
-                ? <ArrowUpRight className="h-4 w-4" />
-                : <ArrowDownRight className="h-4 w-4" />}
-              {fmtAED(curMonth?.revenue ?? 0)} rev
+          <div className="flex items-center gap-3">
+            <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+              {[6, 12, 24].map(m => (
+                <button
+                  key={m}
+                  onClick={() => onMonthsChange(m)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                    months === m ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {m}M
+                </button>
+              ))}
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">This month</div>
+              <div className={`text-sm font-bold flex items-center gap-1 justify-end ${revGtSal ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {revGtSal
+                  ? <ArrowUpRight className="h-4 w-4" />
+                  : <ArrowDownRight className="h-4 w-4" />}
+                {fmtAED(curMonth?.revenue ?? 0)} rev
+              </div>
             </div>
           </div>
         </div>
@@ -370,7 +385,8 @@ function StatCard({
    PAGE
 ══════════════════════════════════════════════════════ */
 export default function DashboardPage() {
-  const { data, isLoading, error } = useDashboard()
+  const [months, setMonths] = useState(6)
+  const { data, isLoading, error } = useDashboard(months)
 
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
@@ -446,7 +462,7 @@ export default function DashboardPage() {
       ) : data ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Revenue vs Salary — full width */}
-          <RevenueVsSalaryWidget snapshots={data.monthlySnapshots} />
+          <RevenueVsSalaryWidget snapshots={data.monthlySnapshots} months={months} onMonthsChange={setMonths} />
 
           {/* Outstanding + Employees + Profit — 3-col bottom row */}
           <div className="lg:col-span-2 grid gap-4 sm:grid-cols-3">

@@ -2,6 +2,8 @@ import mongoose, { Document, Model, Schema } from 'mongoose'
 
 export type PaymentMode = 'Bank' | 'Cash' | 'WPS' | 'Cheque'
 export type PaymentStatus = 'Pending' | 'Paid' | 'Failed'
+export type SalaryStatus = 'Draft' | 'Calculated' | 'Approved' | 'Paid'
+export type WPSStatus = 'NotApplicable' | 'Submitted' | 'Approved' | 'Failed'
 
 export interface ISalary extends Document {
   _id: mongoose.Types.ObjectId
@@ -16,6 +18,22 @@ export interface ISalary extends Document {
   paymentStatus: PaymentStatus
   wpsReference: string
   bankReference: string
+  salaryStatus: SalaryStatus
+  housingAllowance: number
+  transportAllowance: number
+  otherAllowances: number
+  overtimeHours: number
+  overtimeRate: number
+  overtimeAmount: number
+  leaveDeduction: number
+  absentDeduction: number
+  penalty: number
+  loanDeduction: number
+  bankName: string
+  wpsFileId: string
+  bankRefNumber: string
+  wpsStatus: WPSStatus
+  gratuityAmount: number
   createdAt: Date
   updatedAt: Date
 }
@@ -81,6 +99,30 @@ const SalarySchema = new Schema<ISalary>(
       trim: true,
       default: '',
     },
+    salaryStatus: {
+      type: String,
+      enum: { values: ['Draft', 'Calculated', 'Approved', 'Paid'], message: '{VALUE} is not valid' },
+      default: 'Draft',
+    },
+    housingAllowance: { type: Number, min: 0, default: 0 },
+    transportAllowance: { type: Number, min: 0, default: 0 },
+    otherAllowances: { type: Number, min: 0, default: 0 },
+    overtimeHours: { type: Number, min: 0, default: 0 },
+    overtimeRate: { type: Number, min: 0, default: 0 },
+    overtimeAmount: { type: Number, min: 0, default: 0 },
+    leaveDeduction: { type: Number, min: 0, default: 0 },
+    absentDeduction: { type: Number, min: 0, default: 0 },
+    penalty: { type: Number, min: 0, default: 0 },
+    loanDeduction: { type: Number, min: 0, default: 0 },
+    bankName: { type: String, trim: true, default: '' },
+    wpsFileId: { type: String, trim: true, default: '' },
+    bankRefNumber: { type: String, trim: true, default: '' },
+    wpsStatus: {
+      type: String,
+      enum: { values: ['NotApplicable', 'Submitted', 'Approved', 'Failed'], message: '{VALUE} is not valid' },
+      default: 'NotApplicable',
+    },
+    gratuityAmount: { type: Number, min: 0, default: 0 },
   },
   { timestamps: true }
 )
@@ -90,10 +132,12 @@ SalarySchema.index({ employeeId: 1, month: 1 }, { unique: true })
 SalarySchema.index({ month: 1 })
 SalarySchema.index({ paymentStatus: 1 })
 
-// Pre-save hook to compute netSalary
+// Pre-save hook to compute netSalary from all components
 SalarySchema.pre<ISalary>('save', function (next) {
-  this.netSalary = this.baseSalary + this.overtime - this.deductions
-  if (this.netSalary < 0) this.netSalary = 0
+  const fixedTotal = this.baseSalary + (this.housingAllowance ?? 0) + (this.transportAllowance ?? 0) + (this.otherAllowances ?? 0)
+  const otAmt = this.overtimeAmount ?? this.overtime ?? 0
+  const totalDeductions = (this.deductions ?? 0) + (this.leaveDeduction ?? 0) + (this.absentDeduction ?? 0) + (this.penalty ?? 0) + (this.loanDeduction ?? 0)
+  this.netSalary = Math.max(0, fixedTotal + otAmt - totalDeductions)
   next()
 })
 
@@ -102,10 +146,17 @@ SalarySchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate() as Partial<ISalary> | null
   if (update) {
     const base = (update.baseSalary as number) ?? 0
-    const overtime = (update.overtime as number) ?? 0
+    const housing = (update.housingAllowance as number) ?? 0
+    const transport = (update.transportAllowance as number) ?? 0
+    const others = (update.otherAllowances as number) ?? 0
+    const otAmt = (update.overtimeAmount as number) ?? (update.overtime as number) ?? 0
     const deductions = (update.deductions as number) ?? 0
+    const leaveD = (update.leaveDeduction as number) ?? 0
+    const absentD = (update.absentDeduction as number) ?? 0
+    const penalty = (update.penalty as number) ?? 0
+    const loanD = (update.loanDeduction as number) ?? 0
     if (base > 0) {
-      update.netSalary = Math.max(0, base + overtime - deductions)
+      update.netSalary = Math.max(0, base + housing + transport + others + otAmt - deductions - leaveD - absentD - penalty - loanD)
     }
   }
   next()

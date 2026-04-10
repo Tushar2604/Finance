@@ -2,11 +2,28 @@ import mongoose, { Document, Model, Schema } from 'mongoose'
 
 export type InvoiceStatus =
   | 'Draft'
+  | 'Generated'
   | 'Sent'
+  | 'Acknowledged'
   | 'PartiallyPaid'
   | 'Paid'
   | 'Overdue'
   | 'Cancelled'
+
+export interface IInvoiceLineItem {
+  employeeId: mongoose.Types.ObjectId | null
+  deploymentId: mongoose.Types.ObjectId | null
+  timesheetId: mongoose.Types.ObjectId | null
+  position: string
+  billingType: 'Monthly' | 'Daily' | 'Hourly'
+  billingRate: number
+  daysWorked: number
+  hoursWorked: number
+  overtimeHours: number
+  regularAmount: number
+  overtimeAmount: number
+  totalLineAmount: number
+}
 
 export interface IInvoice extends Document {
   _id: mongoose.Types.ObjectId
@@ -27,6 +44,17 @@ export interface IInvoice extends Document {
   paidAmount: number
   paidDate: Date | null
   notes: string
+  servicePeriodFrom: Date | null
+  servicePeriodTo: Date | null
+  sentDate: Date | null
+  sentVia: 'Email' | 'WhatsApp' | 'Portal' | null
+  recipientEmail: string
+  acknowledgementStatus: 'Pending' | 'Acknowledged' | 'Disputed'
+  discountAmount: number
+  exchangeRate: number
+  lineItems: IInvoiceLineItem[]
+  bankTransactionId: mongoose.Types.ObjectId | null
+  matchType: 'Auto' | 'Manual' | null
   createdAt: Date
   updatedAt: Date
 }
@@ -93,7 +121,7 @@ const InvoiceSchema = new Schema<IInvoice>(
     status: {
       type: String,
       enum: {
-        values: ['Draft', 'Sent', 'PartiallyPaid', 'Paid', 'Overdue', 'Cancelled'],
+        values: ['Draft', 'Generated', 'Sent', 'Acknowledged', 'PartiallyPaid', 'Paid', 'Overdue', 'Cancelled'],
         message: '{VALUE} is not a valid invoice status',
       },
       default: 'Draft',
@@ -122,6 +150,36 @@ const InvoiceSchema = new Schema<IInvoice>(
       maxlength: [2000, 'Notes cannot exceed 2000 characters'],
       default: '',
     },
+    servicePeriodFrom: { type: Date, default: null },
+    servicePeriodTo: { type: Date, default: null },
+    sentDate: { type: Date, default: null },
+    sentVia: { type: String, enum: ['Email', 'WhatsApp', 'Portal'], default: null },
+    recipientEmail: { type: String, trim: true, lowercase: true, default: '' },
+    acknowledgementStatus: {
+      type: String,
+      enum: ['Pending', 'Acknowledged', 'Disputed'],
+      default: 'Pending',
+    },
+    discountAmount: { type: Number, min: 0, default: 0 },
+    exchangeRate: { type: Number, min: 0, default: 1 },
+    lineItems: [
+      {
+        employeeId: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
+        deploymentId: { type: Schema.Types.ObjectId, ref: 'Deployment', default: null },
+        timesheetId: { type: Schema.Types.ObjectId, ref: 'Timesheet', default: null },
+        position: { type: String, default: '' },
+        billingType: { type: String, enum: ['Monthly', 'Daily', 'Hourly'], default: 'Monthly' },
+        billingRate: { type: Number, min: 0, default: 0 },
+        daysWorked: { type: Number, min: 0, default: 0 },
+        hoursWorked: { type: Number, min: 0, default: 0 },
+        overtimeHours: { type: Number, min: 0, default: 0 },
+        regularAmount: { type: Number, min: 0, default: 0 },
+        overtimeAmount: { type: Number, min: 0, default: 0 },
+        totalLineAmount: { type: Number, min: 0, default: 0 },
+      },
+    ],
+    bankTransactionId: { type: Schema.Types.ObjectId, ref: 'BankTransaction', default: null },
+    matchType: { type: String, enum: ['Auto', 'Manual'], default: null },
   },
   { timestamps: true }
 )

@@ -49,6 +49,110 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+interface GeneratedInsight {
+  type?: string
+  module?: string
+  message?: string
+  severity?: string
+  content?: string
+  title?: string
+}
+
+function GenerateInsightsPanel() {
+  const [insightType, setInsightType] = useState('monthly')
+  const [loading, setLoading] = useState(false)
+  const [insights, setInsights] = useState<GeneratedInsight | null>(null)
+  const [error, setError] = useState('')
+
+  const severityClass = (s?: string) => {
+    if (s === 'Critical') return 'bg-red-500/20 text-red-400 border-red-500/30'
+    if (s === 'High') return 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+    if (s === 'Medium') return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+    return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+  }
+
+  const handleGenerate = async () => {
+    setLoading(true)
+    setError('')
+    setInsights(null)
+    try {
+      const { data } = await apiClient.post<any>('/ai/generate-insights', { type: insightType })
+      setInsights(data.data)
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Failed to generate insights. Check your OpenAI API key.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const typeOptions = [
+    { value: 'monthly', label: 'Monthly Summary' },
+    { value: 'revenue-leakage', label: 'Revenue Leakage' },
+    { value: 'employee-performance', label: 'Employee Performance' },
+    { value: 'cash-flow', label: 'Cash Flow' },
+  ]
+
+  return (
+    <div className="bg-violet-950/30 border border-violet-800/40 rounded-xl p-4 mb-4 shrink-0">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-violet-400" />
+          <span className="text-white text-sm font-semibold">Generate AI Insights</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={insightType}
+            onChange={(e) => setInsightType(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+          >
+            {typeOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            onClick={handleGenerate}
+            disabled={loading}
+            className="bg-violet-600 hover:bg-violet-700 text-white text-xs gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {loading ? 'Generating…' : 'Generate'}
+          </Button>
+        </div>
+      </div>
+
+      {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+
+      {insights && (
+        <div className="bg-slate-900/60 rounded-lg p-3 mt-2 space-y-2">
+          {insights.severity && (
+            <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full border ${severityClass(insights.severity)}`}>
+              {insights.severity}
+            </span>
+          )}
+          {insights.title && <p className="text-white font-semibold text-sm">{insights.title}</p>}
+          {(insights.message ?? insights.content) && (
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+              {insights.message ?? insights.content}
+            </p>
+          )}
+          {/* Handle array of insights */}
+          {Array.isArray(insights) && (insights as GeneratedInsight[]).map((ins, i) => (
+            <div key={i} className="border-t border-slate-700/40 pt-2 mt-2">
+              {ins.severity && (
+                <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full border mb-1 ${severityClass(ins.severity)}`}>
+                  {ins.severity} · {ins.module}
+                </span>
+              )}
+              <p className="text-slate-300 text-sm leading-relaxed">{ins.message ?? ins.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AIInsightsPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -130,6 +234,8 @@ export default function AIInsightsPage() {
           Live
         </Badge>
       </div>
+
+      <GenerateInsightsPanel />
 
       {/* Suggested queries */}
       <div className="flex gap-2 flex-wrap mb-3 shrink-0">

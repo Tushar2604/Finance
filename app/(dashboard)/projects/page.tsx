@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/api'
-import { FolderKanban, Search, Plus, Download, Upload } from 'lucide-react'
+import { FolderKanban, Search, Plus, Download, Upload, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { exportToCSV } from '@/lib/export'
 import ImportModal from '@/components/ImportModal'
 
@@ -118,12 +119,13 @@ export default function ProjectsPage() {
                       <TableHead>Start Date</TableHead>
                       <TableHead>End Date</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Profile</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.data?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">
                           <FolderKanban className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                           No projects found. Import a CSV or run <code className="text-xs bg-slate-100 px-1 rounded">npm run seed</code>.
                         </TableCell>
@@ -140,6 +142,11 @@ export default function ProjectsPage() {
                             <Badge variant={project.status === 'Active' ? 'default' : project.status === 'Completed' ? 'secondary' : 'outline'}>
                               {project.status}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Link href={`/projects/${project._id}`} className="inline-flex items-center gap-1 text-xs text-violet-600 hover:underline font-medium">
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </Link>
                           </TableCell>
                         </TableRow>
                       ))

@@ -11,8 +11,11 @@ export const GET = withAuth(
       const { searchParams } = new URL(req.url)
       const result = await getInvoices({
         clientId: searchParams.get('clientId') ?? undefined,
+        projectId: searchParams.get('projectId') ?? undefined,
         status: searchParams.get('status') ?? undefined,
         month: searchParams.get('month') ?? undefined,
+        search: searchParams.get('search') ?? undefined,
+        paidOnly: searchParams.get('paidOnly') === 'true',
         page: parseInt(searchParams.get('page') ?? '1', 10),
         limit: parseInt(searchParams.get('limit') ?? '20', 10),
       })

@@ -31,11 +31,11 @@ export interface DashboardMetrics {
   monthlySnapshots: MonthlySnapshot[]
 }
 
-export function useDashboard() {
+export function useDashboard(months = 6) {
   return useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', months],
     queryFn: async () => {
-      const { data } = await apiClient.get<SingleResponse<DashboardMetrics>>('/dashboard')
+      const { data } = await apiClient.get<SingleResponse<DashboardMetrics>>(`/dashboard?months=${months}`)
       return data.data
     },
     staleTime: 5 * 60 * 1000,

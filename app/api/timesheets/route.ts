@@ -14,6 +14,8 @@ export const GET = withAuth(
         clientId: searchParams.get('clientId') ?? undefined,
         month: searchParams.get('month') ?? undefined,
         status: searchParams.get('status') ?? undefined,
+        hrApprovalStatus: searchParams.get('hrApprovalStatus') ?? undefined,
+        signedTimesheetStatus: searchParams.get('signedTimesheetStatus') ?? undefined,
         page: parseInt(searchParams.get('page') ?? '1', 10),
         limit: parseInt(searchParams.get('limit') ?? '20', 10),
       })

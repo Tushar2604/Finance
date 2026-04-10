@@ -10,6 +10,9 @@ export interface BankTransactionFilters {
   matchStatus?: 'Matched' | 'Unmatched' | 'Partial'
   transactionType?: 'Debit' | 'Credit'
   uploadBatchId?: string
+  description?: string
+  dateFrom?: string
+  dateTo?: string
   page?: number
   limit?: number
 }
@@ -29,7 +32,7 @@ export interface PaginatedBankTransactions {
 export async function getBankTransactions(filters: BankTransactionFilters): Promise<PaginatedBankTransactions> {
   await dbConnect()
 
-  const { matchStatus, transactionType, uploadBatchId, page = 1, limit = 50 } = filters
+  const { matchStatus, transactionType, uploadBatchId, description, dateFrom, dateTo, page = 1, limit = 50 } = filters
   const { skip, limit: safeLimit } = paginate(page, limit)
 
   const query: mongoose.FilterQuery<IBankTransaction> = {}
@@ -38,6 +41,16 @@ export async function getBankTransactions(filters: BankTransactionFilters): Prom
   if (transactionType) query.transactionType = transactionType
   if (uploadBatchId && mongoose.Types.ObjectId.isValid(uploadBatchId)) {
     query.uploadBatchId = new mongoose.Types.ObjectId(uploadBatchId)
+  }
+  if (description) query.description = { $regex: description, $options: 'i' }
+  if (dateFrom || dateTo) {
+    query.date = {}
+    if (dateFrom) query.date.$gte = new Date(dateFrom)
+    if (dateTo) {
+      const end = new Date(dateTo)
+      end.setHours(23, 59, 59, 999)
+      query.date.$lte = end
+    }
   }
 
   const [data, total] = await Promise.all([
@@ -101,7 +114,7 @@ export async function uploadBankStatement(
     batchIdStr = batchId.toString()
 
     // 2. Map CSV records to IBankTransaction format
-    const transactions = records.map((r, index) => {
+    const transactions = records.map((r) => {
       // Very generic format mapping based on common Bank standard headers
       // Usually date | description | debit | credit | balance
       const dateStr = r['Date'] || r['date'] || new Date().toISOString()
