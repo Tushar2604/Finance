@@ -115,24 +115,33 @@ export async function uploadBankStatement(
 
     // 2. Map CSV records to IBankTransaction format
     const transactions = records.map((r) => {
-      // Very generic format mapping based on common Bank standard headers
-      // Usually date | description | debit | credit | balance
-      const dateStr = r['Date'] || r['date'] || new Date().toISOString()
-      const desc = r['Description'] || r['description'] || 'No Description'
-      const reference = r['Reference'] || r['reference'] || ''
-      const debitRaw = r['Debit'] || r['debit'] || r['Withdrawal'] || '0'
-      const creditRaw = r['Credit'] || r['credit'] || r['Deposit'] || '0'
-      const balanceRaw = r['Balance'] || r['balance'] || '0'
+      // Flexible column mapping — handles common bank CSV formats
+      const dateStr = r['Date'] || r['date'] || r['Transaction Date'] || r['Value Date'] || r['Txn Date'] || new Date().toISOString()
+      const desc = r['Description'] || r['description'] || r['Narration'] || r['narration'] || r['Details'] || r['Particulars'] || 'No Description'
+      const reference = r['Reference'] || r['reference'] || r['Ref No'] || r['Reference No'] || r['Cheque No'] || r['Transaction ID'] || r['Txn ID'] || ''
+      const counterparty = r['Counterparty'] || r['counterparty'] || r['Beneficiary'] || r['Payee'] || r['Vendor'] || ''
+      const debitRaw = r['Debit'] || r['debit'] || r['Withdrawal'] || r['withdrawal'] || r['Dr'] || r['Debit Amount'] || '0'
+      const creditRaw = r['Credit'] || r['credit'] || r['Deposit'] || r['deposit'] || r['Cr'] || r['Credit Amount'] || '0'
+      const balanceRaw = r['Balance'] || r['balance'] || r['Running Balance'] || r['Closing Balance'] || '0'
+      const amountRaw = r['Amount'] || r['amount'] || ''
 
-      const debit = Math.abs(parseFloat(debitRaw.replace(/[^0-9.-]+/g,"")) || 0)
-      const credit = Math.abs(parseFloat(creditRaw.replace(/[^0-9.-]+/g,"")) || 0)
-      const balance = parseFloat(balanceRaw.replace(/[^0-9.-]+/g,"")) || 0
-      
+      let debit = Math.abs(parseFloat(debitRaw.replace(/[^0-9.-]+/g, '')) || 0)
+      let credit = Math.abs(parseFloat(creditRaw.replace(/[^0-9.-]+/g, '')) || 0)
+      const balance = parseFloat(balanceRaw.replace(/[^0-9.-]+/g, '')) || 0
+
+      // If CSV has single Amount column (negative = debit, positive = credit)
+      if (!debit && !credit && amountRaw) {
+        const amt = parseFloat(amountRaw.replace(/[^0-9.-]+/g, '')) || 0
+        if (amt < 0) debit = Math.abs(amt)
+        else credit = amt
+      }
+
       const transactionType = credit > 0 ? 'Credit' : 'Debit'
 
       return {
         date: new Date(dateStr),
         description: desc,
+        counterparty,
         reference,
         debit,
         credit,

@@ -16,17 +16,27 @@ export interface IClientWorked {
 
 export interface IEmployee extends Document {
   _id: mongoose.Types.ObjectId
-  name: string
-  email: string
-  position: string
+  // ── Core fields (exact order from spec) ──
+  employeeCode: string        // 1
+  name: string                // 2  (employee_name)
+  position: string            // 3
+  discipline: string          // 4
+  employeeType: string        // 5  (employee_type)
+  email: string               // 6
+  mobileNo: string            // 7  (mobile_no)
+  gender: string              // 8
+  dob: Date | null            // 9
+  contractJoiningDate: Date | null // 10
+  status: EmployeeStatus      // 11
+  nationality: string         // 12
+  visaCompany: string         // 13 (visa_company)
+  totalSalary: number         // 14 (total_salary)
+  // ── Legacy / extended fields (kept for backwards compat) ──
+  phone: string
   baseSalary: number
   joiningDate: Date
-  status: EmployeeStatus
   assignedClientId: mongoose.Types.ObjectId | null
   assignedProjectId: mongoose.Types.ObjectId | null
-  employeeCode: string
-  nationality: string
-  phone: string
   bankDetails: IBankDetails
   clientsWorkedWith: IClientWorked[]
   currentMonthlySalary: number
@@ -110,11 +120,27 @@ const EmployeeSchema = new Schema<IEmployee>(
       trim: true,
       uppercase: true,
     },
+    discipline: { type: String, trim: true, default: '' },
+    employeeType: {
+      type: String,
+      enum: { values: ['Permanent', 'Contract', 'Freelance', 'Intern', 'Part-Time', ''], message: '{VALUE} is not valid' },
+      default: '',
+    },
+    mobileNo: { type: String, trim: true, default: '' },
+    gender: {
+      type: String,
+      enum: { values: ['Male', 'Female', 'Other', ''], message: '{VALUE} is not valid' },
+      default: '',
+    },
+    dob: { type: Date, default: null },
+    contractJoiningDate: { type: Date, default: null },
     nationality: {
       type: String,
       trim: true,
       default: '',
     },
+    visaCompany: { type: String, trim: true, default: '' },
+    totalSalary: { type: Number, min: 0, default: 0 },
     phone: {
       type: String,
       trim: true,

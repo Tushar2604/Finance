@@ -6,6 +6,17 @@ import Employee from '@/lib/db/models/Employee'
 import Client from '@/lib/db/models/Client'
 import type { JWTPayload } from '@/lib/auth/jwt'
 
+function parseDate(val: string | undefined): Date | null {
+  if (!val?.trim()) return null
+  const d = new Date(val.trim())
+  return isNaN(d.getTime()) ? null : d
+}
+
+function parseNum(val: string | undefined, fallback = 0): number {
+  const n = parseFloat(val ?? '')
+  return isNaN(n) ? fallback : n
+}
+
 export const POST = withAuth(
   async (req: NextRequest, _ctx: { params: Record<string, string> }, _user: JWTPayload): Promise<NextResponse> => {
     try {
@@ -19,19 +30,27 @@ export const POST = withAuth(
       let inserted = 0, updated = 0, skipped = 0
 
       for (const row of rows) {
-        const email = row['email']?.trim().toLowerCase()
-        const name = row['name']?.trim()
-        const position = row['position']?.trim()
+        try {
+        const name = row['name']?.trim() || row['Employee Name']?.trim() || row['employee_name']?.trim()
+        const position = row['position']?.trim() || row['Position']?.trim()
+        // email is required by the model — generate a placeholder if missing
+        let email = row['email']?.trim().toLowerCase() || row['Email']?.trim().toLowerCase()
 
-        if (!email || !name || !position) { skipped++; continue }
+        if (!name || !position) { skipped++; continue }
 
-        const joiningDate = row['joiningDate'] ? new Date(row['joiningDate']) : new Date()
+        // If no email, derive a placeholder from employeeCode or name to satisfy unique constraint
+        if (!email) {
+          const code = (row['employeeCode']?.trim() || row['Employee Code']?.trim() || name).toLowerCase().replace(/\s+/g, '.')
+          email = `${code}@import.local`
+        }
+
+        const joiningDate = parseDate(row['joiningDate'] ?? row['Joining Date']) ?? new Date()
 
         // Resolve clientCode → clientId
         let assignedClientId: string | null = null
         let clientsWorkedWith: object[] = []
-        const clientCode = row['clientCode']?.trim().toUpperCase()
-        const clientName = row['clientName']?.trim()
+        const clientCode = (row['clientCode']?.trim() || row['Client Code']?.trim() || '').toUpperCase()
+        const clientName = row['clientName']?.trim() || row['Client Name']?.trim()
         if (clientCode) {
           const client = await Client.findOne({ clientCode }).lean()
           if (client) {
@@ -46,44 +65,68 @@ export const POST = withAuth(
           }
         }
 
+        const validStatuses = ['Active', 'Inactive', 'On-Leave']
+        const status = validStatuses.includes(row['status']?.trim() ?? '') ? row['status']?.trim() : 'Active'
+
+        const validEmpTypes = ['Permanent', 'Contract', 'Freelance', 'Intern', 'Part-Time', '']
+        const employeeType = validEmpTypes.includes(row['employeeType']?.trim() ?? '') ? (row['employeeType']?.trim() ?? '') : ''
+
+        const validGenders = ['Male', 'Female', 'Other', '']
+        const gender = validGenders.includes(row['gender']?.trim() ?? '') ? (row['gender']?.trim() ?? '') : ''
+
         const doc: Record<string, unknown> = {
           name,
           email,
           position,
-          baseSalary: parseFloat(row['baseSalary'] ?? '0') || 0,
-          joiningDate: isNaN(joiningDate.getTime()) ? new Date() : joiningDate,
-          status: (['Active', 'Inactive', 'On-Leave'].includes(row['status'] ?? '') ? row['status'] : 'Active'),
-          nationality: row['nationality']?.trim() ?? '',
-          phone: row['phone']?.trim() ?? '',
-          currentMonthlySalary: parseFloat(row['currentMonthlySalary'] ?? '0') || 0,
-          monthlySalaryContracted: parseFloat(row['monthlySalaryContracted'] ?? '0') || 0,
-          basicSalaryContracted: parseFloat(row['basicSalaryContracted'] ?? '0') || 0,
-          noticePeriod: parseInt(row['noticePeriod'] ?? '30') || 30,
-          probationPeriod: parseInt(row['probationPeriod'] ?? '90') || 90,
+          // Spec fields
+          discipline:           row['discipline']?.trim()           ?? row['Discipline']?.trim()            ?? '',
+          employeeType,
+          mobileNo:             row['mobileNo']?.trim()             ?? row['Mobile No']?.trim()             ?? row['mobile_no']?.trim() ?? '',
+          gender,
+          dob:                  parseDate(row['dob']                ?? row['DOB']                           ?? row['Date of Birth']),
+          contractJoiningDate:  parseDate(row['contractJoiningDate'] ?? row['Contract Joining Date']),
+          status,
+          nationality:          row['nationality']?.trim()          ?? row['Nationality']?.trim()           ?? '',
+          visaCompany:          row['visaCompany']?.trim()          ?? row['Visa Company']?.trim()          ?? row['visa_company']?.trim() ?? '',
+          totalSalary:          parseNum(row['totalSalary']          ?? row['Total Salary']                 ?? row['total_salary']),
+          // Legacy
+          baseSalary:           parseNum(row['baseSalary']           ?? row['Base Salary'], 0),
+          joiningDate,
+          phone:                row['phone']?.trim()                ?? row['Phone']?.trim()                 ?? '',
+          currentMonthlySalary: parseNum(row['currentMonthlySalary'] ?? row['Current Monthly Salary']),
+          monthlySalaryContracted: parseNum(row['monthlySalaryContracted'] ?? row['Monthly Salary Contracted']),
+          basicSalaryContracted:   parseNum(row['basicSalaryContracted']   ?? row['Basic Salary Contracted']),
+          noticePeriod:         parseInt(row['noticePeriod']         ?? row['Notice Period']    ?? '30', 10) || 30,
+          probationPeriod:      parseInt(row['probationPeriod']      ?? row['Probation Period'] ?? '90', 10) || 90,
           bankDetails: {
-            bankName: row['bankName']?.trim() ?? '',
-            accountNumber: row['accountNumber']?.trim() ?? '',
-            iban: row['iban']?.trim().toUpperCase() ?? '',
+            bankName:      row['bankName']?.trim()      ?? row['Bank Name']?.trim()       ?? '',
+            accountNumber: row['accountNumber']?.trim() ?? row['Account Number']?.trim()  ?? '',
+            iban:          (row['iban']?.trim()         ?? row['IBAN']?.trim()            ?? '').toUpperCase(),
           },
           ...(assignedClientId ? { assignedClientId, clientsWorkedWith } : {}),
         }
 
-        const existing = await Employee.findOne({ email })
+        // Dedup: first by employeeCode if provided, then by email
+        const providedCode = (row['employeeCode']?.trim() || row['Employee Code']?.trim() || '').toUpperCase()
+        const existing = providedCode
+          ? await Employee.findOne({ employeeCode: providedCode })
+          : await Employee.findOne({ email })
+
         if (existing) {
           await Employee.findByIdAndUpdate(existing._id, doc)
           updated++
         } else {
-          // Generate name-based employee code
-          const providedCode = row['employeeCode']?.trim().toUpperCase()
           let base = providedCode || generateEmployeeCode(0, name)
           let code = base
           let suffix = 2
-          while (await Employee.exists({ employeeCode: code })) {
-            code = `${base}-${suffix++}`
-          }
+          while (await Employee.exists({ employeeCode: code })) { code = `${base}-${suffix++}` }
           doc.employeeCode = code
           await Employee.create(doc)
           inserted++
+        }
+        } catch (rowErr) {
+          console.error('[employees/import] row error:', rowErr)
+          skipped++
         }
       }
 

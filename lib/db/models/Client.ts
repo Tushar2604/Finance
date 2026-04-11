@@ -19,11 +19,29 @@ export interface IScopePricing {
 
 export interface IClient extends Document {
   _id: mongoose.Types.ObjectId
-  name: string
-  clientCode: string
-  website: string
-  industry: string
-  companyDetails: ICompanyDetails
+  // ── Spec fields (exact order) ──
+  clientCode: string                   // 1
+  name: string                         // 2  (Client Name)
+  website: string                      // 3
+  industry: string                     // 4
+  companyDetails: ICompanyDetails      // email, phone, address, taxNumber → 5-8
+  serviceType: string                  // 9  Agreement / LPO
+  signedAgreement: boolean             // 10
+  agreementNo: string                  // 11
+  requiredWeeklyHoursDeal: number      // 12
+  validLPO: boolean                    // 13
+  contractDuration: string             // 14
+  discipline: string                   // 15
+  lpoNo: string                        // 16
+  monthlyDealAmount: number            // 17
+  workStation: string                  // 18
+  otHourlyDealAmount: number           // 19
+  invoiceType: string                  // 20  Hourly / Daily
+  requiredWeeklyHoursSite: number      // 21
+  lpoDate: Date | null                 // 22
+  lpoValidity: Date | null             // 23
+  remarks: string                      // 24
+  // ── Legacy / system fields ──
   contractType: ContractType
   rateCard: number
   billingType: BillingType
@@ -87,6 +105,22 @@ const ClientSchema = new Schema<IClient>(
       },
       default: 'None',
     },
+    serviceType: { type: String, enum: { values: ['Agreement', 'LPO', 'Both', ''], message: '{VALUE} is not valid' }, default: '' },
+    signedAgreement: { type: Boolean, default: false },
+    agreementNo: { type: String, trim: true, default: '' },
+    requiredWeeklyHoursDeal: { type: Number, min: 0, default: 0 },
+    validLPO: { type: Boolean, default: false },
+    contractDuration: { type: String, trim: true, default: '' },
+    discipline: { type: String, trim: true, default: '' },
+    lpoNo: { type: String, trim: true, default: '' },
+    monthlyDealAmount: { type: Number, min: 0, default: 0 },
+    workStation: { type: String, trim: true, default: '' },
+    otHourlyDealAmount: { type: Number, min: 0, default: 0 },
+    invoiceType: { type: String, enum: { values: ['Hourly', 'Daily', ''], message: '{VALUE} is not valid' }, default: '' },
+    requiredWeeklyHoursSite: { type: Number, min: 0, default: 0 },
+    lpoDate: { type: Date, default: null },
+    lpoValidity: { type: Date, default: null },
+    remarks: { type: String, trim: true, default: '' },
     rateCard: {
       type: Number,
       min: [0, 'Rate card cannot be negative'],

@@ -21,7 +21,7 @@ export type { IProject, ProjectStatus } from './models/Project'
 export type { IEmployee, EmployeeStatus, IBankDetails, IClientWorked } from './models/Employee'
 export type { ITimesheet, TimesheetStatus, SignedTimesheetStatus, HRApprovalStatus, ITimesheetSite } from './models/Timesheet'
 export type { IInvoice, InvoiceStatus, IInvoiceLineItem } from './models/Invoice'
-export type { ISalary, PaymentMode, PaymentStatus, SalaryStatus, WPSStatus } from './models/Salary'
+export type { ISalary, PaymentMode, PaymentStatus } from './models/Salary'
 export type {
   IExpense,
   ExpenseCategory,

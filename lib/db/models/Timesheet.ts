@@ -20,7 +20,7 @@ export interface ITimesheet extends Document {
   _id: mongoose.Types.ObjectId
   referenceCode: string
   employeeId: mongoose.Types.ObjectId
-  clientId: mongoose.Types.ObjectId
+  clientId: mongoose.Types.ObjectId | null
   projectId: mongoose.Types.ObjectId | null
   month: string // YYYY-MM
   workingDays: number
@@ -58,7 +58,7 @@ const TimesheetSchema = new Schema<ITimesheet>(
     clientId: {
       type: Schema.Types.ObjectId,
       ref: 'Client',
-      required: [true, 'Client is required'],
+      default: null,
     },
     projectId: {
       type: Schema.Types.ObjectId,
@@ -186,8 +186,8 @@ TimesheetSchema.index({ status: 1 })
 TimesheetSchema.index({ clientId: 1 })
 TimesheetSchema.index({ employeeId: 1 })
 
-const Timesheet: Model<ITimesheet> =
-  mongoose.models.Timesheet ??
-  mongoose.model<ITimesheet>('Timesheet', TimesheetSchema)
+// Always recompile so schema changes (e.g. removing required) take effect without a full restart
+delete (mongoose.models as Record<string, unknown>)['Timesheet']
+const Timesheet: Model<ITimesheet> = mongoose.model<ITimesheet>('Timesheet', TimesheetSchema)
 
 export default Timesheet

@@ -5,7 +5,7 @@ export type ProjectStatus = 'Active' | 'Completed' | 'On-Hold' | 'Cancelled'
 export interface IProject extends Document {
   _id: mongoose.Types.ObjectId
   name: string
-  clientId: mongoose.Types.ObjectId
+  clientId: mongoose.Types.ObjectId | null
   startDate: Date
   endDate: Date | null
   status: ProjectStatus
@@ -27,7 +27,7 @@ const ProjectSchema = new Schema<IProject>(
     clientId: {
       type: Schema.Types.ObjectId,
       ref: 'Client',
-      required: [true, 'Client is required'],
+      default: null,
     },
     startDate: {
       type: Date,
@@ -66,7 +66,7 @@ ProjectSchema.index({ status: 1 })
 ProjectSchema.index({ clientId: 1, status: 1 })
 ProjectSchema.index({ startDate: -1 })
 
-const Project: Model<IProject> =
-  mongoose.models.Project ?? mongoose.model<IProject>('Project', ProjectSchema)
+delete (mongoose.models as Record<string, unknown>)['Project']
+const Project: Model<IProject> = mongoose.model<IProject>('Project', ProjectSchema)
 
 export default Project

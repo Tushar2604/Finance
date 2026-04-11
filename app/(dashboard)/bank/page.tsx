@@ -317,6 +317,12 @@ export default function BankPage() {
           <span>Successfully uploaded and parsed <strong>{uploadMutation.data?.count}</strong> transactions!</span>
         </div>
       )}
+      {uploadMutation.isError && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg flex items-center gap-3">
+          <X className="h-5 w-5 text-red-600 shrink-0" />
+          <span>Upload failed: {(uploadMutation.error as any)?.response?.data?.error ?? 'Please check your CSV format and try again.'}</span>
+        </div>
+      )}
 
       <Card className="shadow-sm border-0 border-t-4 border-t-blue-500">
         <CardHeader>

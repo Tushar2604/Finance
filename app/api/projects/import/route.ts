@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from '@/lib/utils'
 import dbConnect from '@/lib/db/connection'
 import Project from '@/lib/db/models/Project'
 import Client from '@/lib/db/models/Client'
+import mongoose from 'mongoose'
 import type { JWTPayload } from '@/lib/auth/jwt'
 
 export const POST = withAuth(
@@ -19,36 +20,63 @@ export const POST = withAuth(
       let inserted = 0, updated = 0, skipped = 0
 
       for (const row of rows) {
-        const name = row['name']?.trim()
-        if (!name || name.length < 2) { skipped++; continue }
+        try {
+          const name = row['name']?.trim() || row['Name']?.trim() || row['Project Name']?.trim()
+          if (!name || name.length < 2) { skipped++; continue }
 
-        let clientId = row['clientId']?.trim() || null
-        if (!clientId && row['client']) {
-          const c = await Client.findOne({ name: { $regex: `^${row['client'].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } })
-          clientId = c?._id?.toString() ?? null
-        }
+          // Resolve clientId by clientCode first, then by client name
+          let clientId: mongoose.Types.ObjectId | null = null
+          const clientCode = (row['clientCode']?.trim() || row['Client Code']?.trim() || '').toUpperCase()
+          const clientName = row['client']?.trim() || row['Client']?.trim() || row['clientName']?.trim() || row['Client Name']?.trim()
 
-        const validStatuses = ['Active', 'Completed', 'On-Hold', 'Cancelled']
-        const status = validStatuses.includes(row['status'] ?? '') ? row['status'] : 'Active'
+          if (clientCode) {
+            const c = await Client.findOne({ clientCode })
+            if (c) clientId = c._id
+          }
+          if (!clientId && clientName) {
+            const escaped = clientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const c = await Client.findOne({ name: { $regex: `^${escaped}$`, $options: 'i' } })
+            if (c) clientId = c._id
+          }
 
-        const doc = {
-          name,
-          clientId: clientId || undefined,
-          description: row['description']?.trim() ?? '',
-          status,
-          budget: parseFloat(row['budget'] ?? '0') || 0,
-          startDate: row['startDate'] ? new Date(row['startDate']) : new Date(),
-          endDate: row['endDate'] ? new Date(row['endDate']) : null,
-        }
+          const validStatuses = ['Active', 'Completed', 'On-Hold', 'Cancelled']
+          const status = validStatuses.includes(row['status']?.trim() ?? '') ? row['status']?.trim() : 'Active'
 
-        // Dedup by name + clientId
-        const existing = await Project.findOne({ name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }, clientId: clientId || { $exists: true } })
-        if (existing) {
-          await Project.findByIdAndUpdate(existing._id, doc)
-          updated++
-        } else {
-          await Project.create(doc)
-          inserted++
+          const startDateRaw = row['startDate']?.trim() || row['Start Date']?.trim()
+          const endDateRaw   = row['endDate']?.trim()   || row['End Date']?.trim()
+
+          const doc: Record<string, unknown> = {
+            name,
+            description: row['description']?.trim() ?? row['Description']?.trim() ?? '',
+            status,
+            budget: parseFloat(row['budget'] ?? row['Budget'] ?? '0') || 0,
+            startDate: startDateRaw ? new Date(startDateRaw) : new Date(),
+            endDate: endDateRaw ? new Date(endDateRaw) : null,
+          }
+          if (clientId) doc.clientId = clientId
+
+          // Dedup by name (+ clientId if available)
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const dedupeQuery: Record<string, unknown> = { name: { $regex: `^${escaped}$`, $options: 'i' } }
+          if (clientId) dedupeQuery.clientId = clientId
+
+          const existing = await Project.findOne(dedupeQuery)
+          if (existing) {
+            await Project.findByIdAndUpdate(existing._id, doc, { runValidators: false })
+            updated++
+          } else {
+            // Use collection.insertOne to bypass stale schema cache (avoids clientId:required issue)
+            await Project.collection.insertOne({
+              ...doc,
+              _id: new mongoose.Types.ObjectId(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            inserted++
+          }
+        } catch (rowErr) {
+          console.error('[projects/import] row error:', rowErr)
+          skipped++
         }
       }
 

@@ -16,14 +16,15 @@ import { ERPTableHeader } from '@/components/shared/ERPTableHeader'
 import { cn } from '@/lib/utils'
 
 const IMPORT_COLUMNS = [
-  { key: 'employeeCode', label: 'Employee Code', required: true },
-  { key: 'email', label: 'Employee Email', required: true },
+  { key: 'employeeCode', label: 'Employee Code (or name/email)', required: true },
+  { key: 'email', label: 'Employee Email (optional if code given)' },
+  { key: 'employeeName', label: 'Employee Name (optional fallback)' },
   { key: 'referenceCode', label: 'Timesheet Reference Code' },
   { key: 'siteName', label: 'Site Name' },
   { key: 'siteCode', label: 'Site Code (ERP)' },
   { key: 'projectName', label: 'Project Name' },
   { key: 'projectCode', label: 'Project Code' },
-  { key: 'month', label: 'Month/Year (YYYY-MM)', required: true },
+  { key: 'month', label: 'Month/Year (YYYY-MM or MM)', required: true },
   { key: 'totalRequiredHours', label: 'Total Required Hours' },
   { key: 'normalServedHours', label: 'Normal Served Hours' },
   { key: 'totalOTHours', label: 'Total OT Hours' },
@@ -37,7 +38,8 @@ const IMPORT_COLUMNS = [
 
 const TEMPLATE_ROWS = [
   {
-    employeeCode: 'EMP-001', email: 'emp1@bimstaff.ae', referenceCode: 'TS-2024-001',
+    employeeCode: 'EMP-JOHN-2024', email: '', employeeName: 'John Smith',
+    referenceCode: 'TS-2024-001',
     siteName: 'Site Alpha', siteCode: 'SA-001', projectName: 'Project X', projectCode: 'PX-001',
     month: '2024-11', totalRequiredHours: '176', normalServedHours: '160', totalOTHours: '16',
     totalServedHours: '176', totalServedDays: '22', totalLeave: '0',

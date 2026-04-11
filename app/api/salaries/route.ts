@@ -13,10 +13,11 @@ export const GET = withAuth(
       const employeeId = searchParams.get('employeeId') ?? undefined
       const month = searchParams.get('month') ?? undefined
       const paymentStatus = searchParams.get('paymentStatus') as PaymentStatus | undefined
+      const search = searchParams.get('search') ?? undefined
       const page = parseInt(searchParams.get('page') ?? '1', 10)
       const limit = parseInt(searchParams.get('limit') ?? '20', 10)
 
-      const result = await getSalaries({ employeeId, month, paymentStatus, page, limit })
+      const result = await getSalaries({ employeeId, month, paymentStatus, search, page, limit })
       return NextResponse.json(apiSuccess(result))
     } catch (err: any) {
       console.error('[GET /api/salaries]', err)

@@ -1,5 +1,5 @@
 import dbConnect from '@/lib/db/connection'
-import Salary, { ISalary, PaymentStatus, PaymentMode } from '@/lib/db/models/Salary'
+import Salary, { ISalary, PaymentStatus } from '@/lib/db/models/Salary'
 import AuditLog from '@/lib/db/models/AuditLog'
 import mongoose from 'mongoose'
 import { paginate, buildPaginationMeta } from '@/lib/utils'
@@ -8,6 +8,7 @@ export interface SalaryFilters {
   employeeId?: string
   month?: string
   paymentStatus?: PaymentStatus
+  search?: string
   page?: number
   limit?: number
 }
@@ -45,7 +46,7 @@ function normalizeSalaryMutationInput(data: SalaryMutationInput): Partial<ISalar
 export async function getSalaries(filters: SalaryFilters): Promise<PaginatedSalaries> {
   await dbConnect()
 
-  const { employeeId, month, paymentStatus, page = 1, limit = 20 } = filters
+  const { employeeId, month, paymentStatus, search, page = 1, limit = 20 } = filters
   const { skip, limit: safeLimit } = paginate(page, limit)
 
   const query: mongoose.FilterQuery<ISalary> = {}
@@ -57,9 +58,21 @@ export async function getSalaries(filters: SalaryFilters): Promise<PaginatedSala
   if (month) query.month = month
   if (paymentStatus) query.paymentStatus = paymentStatus
 
+  if (search) {
+    const Employee = (await import('@/lib/db/models/Employee')).default
+    const matchingEmployees = await Employee.find({
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { employeeCode: { $regex: search, $options: 'i' } },
+      ],
+    }).select('_id')
+    const empIds = matchingEmployees.map((e: { _id: mongoose.Types.ObjectId }) => e._id)
+    query.employeeId = { $in: empIds }
+  }
+
   const [data, total] = await Promise.all([
     Salary.find(query)
-      .populate('employeeId', 'firstName lastName employeeId')
+      .populate('employeeId', 'name employeeCode')
       .sort({ month: -1, createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
