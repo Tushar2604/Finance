@@ -38,10 +38,10 @@ async function detectMissingInvoices(month: string): Promise<AuditFinding[]> {
 
   for (const ts of timesheets) {
     // Check if there's an invoice for this employee+client+month
-    const hasInvoice = invoices.some(
+    const hasInvoice = !ts.clientId || invoices.some(
       (inv) =>
         inv.employeeId?.toString() === ts.employeeId.toString() &&
-        inv.clientId.toString() === ts.clientId.toString()
+        inv.clientId?.toString() === ts.clientId!.toString()
     )
 
     if (!hasInvoice) {
